@@ -103,10 +103,14 @@ If you encounter issues:
 To remove the service:
 
 1. Stop and delete the service:
-   ```powershell
-   Stop-Service -Name "MQTTPowershellService"
-   sc.exe delete "MQTTPowershellService"
-   ```
+  ```powershell
+  Stop-Service -Name "MQTTPowershellService"
+
+  <!-- Older versions of powershell -->
+  sc.exe delete "MQTTPowershellService" 
+  <!-- Newer versions of powershell -->
+  Remove-Service -Name "MQTTPowershellService"
+  ```
 
 2. Delete the executable and configuration files.
 
