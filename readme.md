@@ -116,8 +116,8 @@ To remove the service:
 
 ## Security Considerations
 
-- Ensure your MQTT broker is properly secured.
-- Use strong passwords for MQTT authentication.
+- Adding you Username and Password to the config file exposes your MQTT broker to unauthorized access. This is a security risk and you should only use this service on a trusted closed network.
+- I will look into securing the service further in the future but for now, be cautious when using this service.
 - Be cautious about what commands you allow and what the PowerShell scripts do.
 - Consider network-level security to restrict access to your MQTT broker.
 
