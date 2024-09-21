@@ -55,9 +55,10 @@ This project is a Windows service that listens for MQTT messages and executes Po
    ```
 
 6. Open PowerShell as Administrator and run the following commands to install and start the service:
-
+   - Replace `C:\your\path\to` with the path to the executable on your computer.
+  
    ```powershell
-   New-Service -Name "MQTTPowershellService" -BinaryPathName "D:\devbox\golang-win11-mqtt-binary\MQTTPowershellService.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
+   New-Service -Name "MQTTPowershellService" -BinaryPathName "C:\your\path\to\MQTTPowershellService.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
    Start-Service -Name "MQTTPowershellService"
    ```
 
