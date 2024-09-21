@@ -30,23 +30,31 @@ type program struct {
 }
 
 func (p *program) loadConfig() error {
+	p.logToFile("Starting to load config...")
 	exePath, err := os.Executable()
 	if err != nil {
+		p.logToFile(fmt.Sprintf("Failed to get executable path: %v", err))
 		return fmt.Errorf("failed to get executable path: %v", err)
 	}
+	p.logToFile(fmt.Sprintf("Executable path: %s", exePath))
 
 	configPath := filepath.Join(filepath.Dir(exePath), "config.json")
+	p.logToFile(fmt.Sprintf("Config path: %s", configPath))
+
 	file, err := os.Open(configPath)
 	if err != nil {
+		p.logToFile(fmt.Sprintf("Failed to open config file: %v", err))
 		return fmt.Errorf("failed to open config file: %v", err)
 	}
 	defer file.Close()
 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&p.config); err != nil {
+		p.logToFile(fmt.Sprintf("Failed to decode config: %v", err))
 		return fmt.Errorf("failed to decode config: %v", err)
 	}
 
+	p.logToFile("Config loaded successfully")
 	return nil
 }
 
@@ -71,11 +79,14 @@ func (p *program) Start(s service.Service) error {
 		p.logToFile(errMsg)
 		return err
 	}
+	p.logToFile("Config loaded, about to start run function")
 	go p.run()
 	return nil
 }
 
 func (p *program) run() {
+	p.logToFile("Run function started")
+
 	opts := mqtt.NewClientOptions().AddBroker(p.config.BrokerAddress)
 	opts.SetClientID(p.config.ClientID)
 	opts.SetUsername(p.config.Username)
@@ -83,18 +94,26 @@ func (p *program) run() {
 	opts.SetOnConnectHandler(p.onConnect)
 	opts.SetConnectionLostHandler(p.onConnectionLost)
 
+	opts.SetAutoReconnect(true)
+	opts.SetMaxReconnectInterval(time.Minute * 5)
+	opts.SetConnectRetry(true)
+	opts.SetConnectRetryInterval(time.Second * 10)
+
 	p.mqttClient = mqtt.NewClient(opts)
+
+	// Attempt initial connection
+	p.logToFile("Attempting initial connection to MQTT broker...")
 	if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		p.elog.Error(1, fmt.Sprintf("Failed to connect to MQTT broker: %v", token.Error()))
-		return
+		p.logToFile(fmt.Sprintf("Initial connection failed: %v", token.Error()))
+		p.elog.Error(1, fmt.Sprintf("Initial connection failed: %v", token.Error()))
+	} else {
+		p.logToFile("Initial connection successful")
 	}
 
-	p.elog.Info(1, "Connected to MQTT broker")
-	p.elog.Info(1, "Connected to MQTT broker")
-	p.logToFile("Connected to MQTT broker")
-
+	// Keep the service running
 	for {
-		time.Sleep(time.Second)
+		time.Sleep(time.Minute)
+		p.logToFile("Service is still running...")
 	}
 }
 
