@@ -6,8 +6,8 @@
   "client_id": "my-windows-automation-service",
   "topic": "windows/commands",
   "commands": {
-    "shutdown_windows": "C:\\scripts\\shutdown_windows.ps1",
-    "restart_windows": "C:\\scripts\\restart_windows.ps1",
-    "launch_app": "C:\\scripts\\launch_app.ps1"
+    "shutdown_windows": "shutdown_windows.ps1",
+    "restart_windows": "restart_windows.ps1",
+    "launch_app": "launch_app.ps1"
   }
 }

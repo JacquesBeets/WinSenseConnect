@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -26,6 +27,7 @@ type program struct {
 	mqttClient mqtt.Client
 	config     Config
 	logger     *Logger
+	scriptDir  string
 }
 
 func newProgram() (*program, error) {
@@ -35,6 +37,14 @@ func newProgram() (*program, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
+
+	// Set the script directory
+	exePath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get executable path: %v", err)
+	}
+	p.scriptDir = filepath.Join(filepath.Dir(exePath), "scripts")
+
 	return p, nil
 }
 
@@ -126,23 +136,32 @@ func (p *program) onConnectionLost(client mqtt.Client, err error) {
 
 func (p *program) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	command := string(msg.Payload())
-	logMsg := fmt.Sprintf("Received command: %s", command)
-	p.logger.Debug(logMsg)
+	p.logger.Debug(fmt.Sprintf("Received command: %s", command))
 
-	scriptPath, exists := p.config.Commands[command]
+	scriptName, exists := p.config.Commands[command]
 	if !exists {
-		warnMsg := fmt.Sprintf("Unknown command: %s", command)
-		p.logger.Error(warnMsg)
+		p.logger.Error(fmt.Sprintf("Unknown command: %s", command))
 		return
 	}
 
-	cmd := exec.Command("powershell", "-File", scriptPath)
-	if err := cmd.Run(); err != nil {
-		errMsg := fmt.Sprintf("Error executing script for command '%s': %v", command, err)
-		p.logger.Error(errMsg)
+	batchPath := filepath.Join(p.scriptDir, "run_ps.bat")
+	scriptPath := filepath.Join(p.scriptDir, scriptName)
+
+	p.logger.Debug(fmt.Sprintf("Executing script: %s", scriptPath))
+
+	cmd := exec.Command(batchPath, scriptPath)
+
+	// Capture stdout and stderr
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Error executing script for command '%s': %v\nStderr: %s", command, err, stderr.String()))
 	} else {
-		successMsg := fmt.Sprintf("Successfully executed command: %s", command)
-		p.logger.Debug(successMsg)
+		p.logger.Debug(fmt.Sprintf("Successfully executed command: %s\nOutput: %s", command, out.String()))
 	}
 }
 
