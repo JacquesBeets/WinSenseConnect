@@ -14,13 +14,15 @@ This project is a Windows service that listens for MQTT messages and executes Po
 1. Clone this repository or download the source code.
 
 2. Install the required Go packages:
-   ```
+
+   ```go
    go get github.com/eclipse/paho.mqtt.golang
    go get github.com/kardianos/service
    go get golang.org/x/sys/windows/svc/eventlog
    ```
 
 3. Create a `config.json` file in the same directory as the Go script:
+
    ```json
    {
        "broker_address": "tcp://your_broker_ip:1883",
@@ -36,6 +38,7 @@ This project is a Windows service that listens for MQTT messages and executes Po
        }
    }
    ```
+
    Replace the broker address, username, and password with your MQTT broker details.
 
 4. Create the PowerShell scripts referenced in your `config.json`. For example:
@@ -45,11 +48,13 @@ This project is a Windows service that listens for MQTT messages and executes Po
    - `C:\scripts\launch_app.ps1`
 
 5. Build the Go program:
-   ```
+
+   ```go
    go build -o MQTTPowershellService.exe
    ```
 
 6. Open PowerShell as Administrator and run the following commands to install and start the service:
+
    ```powershell
    New-Service -Name "MQTTPowershellService" -BinaryPathName "C:\path\to\MQTTPowershellService.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
    Start-Service -Name "MQTTPowershellService"
@@ -73,6 +78,7 @@ The service logs its activities to two places:
 To add or modify commands:
 
 1. Stop the service:
+
    ```powershell
    Stop-Service -Name "MQTTPowershellService"
    ```
@@ -82,6 +88,7 @@ To add or modify commands:
 3. Create or modify the corresponding PowerShell scripts.
 
 4. Start the service:
+
    ```powershell
    Start-Service -Name "MQTTPowershellService"
    ```
@@ -94,6 +101,7 @@ If you encounter issues:
 2. Ensure your MQTT broker is running and accessible.
 3. Verify that the PowerShell scripts exist at the paths specified in `config.json`.
 4. Check that the service is running:
+
    ```powershell
    Get-Service -Name "MQTTPowershellService"
    ```
@@ -103,6 +111,7 @@ If you encounter issues:
 To remove the service:
 
 1. Stop and delete the service:
+
   ```powershell
   Stop-Service -Name "MQTTPowershellService"
 
