@@ -1,2 +1,4 @@
+/scripts
 *.exe
+*.log
 config.json

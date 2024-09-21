@@ -1,4 +1,5 @@
 {
+  "log_level": "debug",
   "broker_address": "tcp://192.168.0.3:1883",
   "username": "your_username",
   "password": "your_password",
