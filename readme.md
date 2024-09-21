@@ -30,22 +30,23 @@ This project is a Windows service that listens for MQTT messages and executes Po
        "password": "your_mqtt_password",
        "client_id": "windows-automation-service",
        "topic": "windows/commands",
+       "log_level": "debug",
        "commands": {
-           "switch_to_macbook": "C:\\scripts\\switch_to_macbook.ps1",
-           "shutdown_windows": "C:\\scripts\\shutdown_windows.ps1",
-           "restart_windows": "C:\\scripts\\restart_windows.ps1",
-           "launch_app": "C:\\scripts\\launch_app.ps1"
+           "switch_to_macbook": "switch_to_macbook.ps1",
+           "shutdown_windows": "shutdown_windows.ps1",
+           "restart_windows": "restart_windows.ps1",
+           "launch_app": "launch_app.ps1"
        }
    }
    ```
 
    Replace the broker address, username, and password with your MQTT broker details.
 
-4. Create the PowerShell scripts referenced in your `config.json`. For example:
-   - `C:\scripts\switch_to_macbook.ps1`
-   - `C:\scripts\shutdown_windows.ps1`
-   - `C:\scripts\restart_windows.ps1`
-   - `C:\scripts\launch_app.ps1`
+4. The repository includes a `scripts` folder with a `run_ps.bat` file. This is where you'll add your PowerShell scripts. Create the PowerShell scripts referenced in your `config.json` and place them in the `scripts` folder. For example:
+   - `scripts\switch_to_macbook.ps1`
+   - `scripts\shutdown_windows.ps1`
+   - `scripts\restart_windows.ps1`
+   - `scripts\launch_app.ps1`
 
 5. Build the Go program:
 
@@ -56,7 +57,7 @@ This project is a Windows service that listens for MQTT messages and executes Po
 6. Open PowerShell as Administrator and run the following commands to install and start the service:
 
    ```powershell
-   New-Service -Name "MQTTPowershellService" -BinaryPathName "C:\path\to\MQTTPowershellService.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
+   New-Service -Name "MQTTPowershellService" -BinaryPathName "D:\devbox\golang-win11-mqtt-binary\MQTTPowershellService.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
    Start-Service -Name "MQTTPowershellService"
    ```
 
@@ -71,7 +72,7 @@ To trigger a command, publish a message to your MQTT topic with the command as t
 The service logs its activities to two places:
 
 1. Windows Event Log: You can view these logs in the Event Viewer under Windows Logs > Application.
-2. A log file: Located at `C:\MQTTPowershellService.log`.
+2. A log file: Located in the same directory as the executable, named `MQTTPowershellService.log`.
 
 ## Modifying Commands
 
@@ -85,7 +86,7 @@ To add or modify commands:
 
 2. Edit the `config.json` file to add or change command entries.
 
-3. Create or modify the corresponding PowerShell scripts.
+3. Create or modify the corresponding PowerShell scripts in the `scripts` folder.
 
 4. Start the service:
 
@@ -97,9 +98,9 @@ To add or modify commands:
 
 If you encounter issues:
 
-1. Check the log file at `C:\MQTTPowershellService.log`.
+1. Check the log file `MQTTPowershellService.log` in the same directory as the executable.
 2. Ensure your MQTT broker is running and accessible.
-3. Verify that the PowerShell scripts exist at the paths specified in `config.json`.
+3. Verify that the PowerShell scripts exist in the `scripts` folder.
 4. Check that the service is running:
 
    ```powershell
@@ -112,23 +113,25 @@ To remove the service:
 
 1. Stop and delete the service:
 
-  ```powershell
-  Stop-Service -Name "MQTTPowershellService"
+   ```powershell
+   Stop-Service -Name "MQTTPowershellService"
+   Remove-Service -Name "MQTTPowershellService"
+   ```
 
-  <!-- Older versions of powershell -->
-  sc.exe delete "MQTTPowershellService" 
-  <!-- Newer versions of powershell -->
-  Remove-Service -Name "MQTTPowershellService"
-  ```
+   For older versions of PowerShell:
 
-2. Delete the executable and configuration files.
+   ```powershell
+   sc.exe delete "MQTTPowershellService"
+   ```
+
+2. Delete the executable, configuration files, and the `scripts` folder.
 
 ## Security Considerations
 
-- Adding you Username and Password to the config file exposes your MQTT broker to unauthorized access. This is a security risk and you should only use this service on a trusted closed network.
-- I will look into securing the service further in the future but for now, be cautious when using this service.
+- Storing your MQTT username and password in the config file poses a security risk. Use this service only on a trusted closed network.
 - Be cautious about what commands you allow and what the PowerShell scripts do.
 - Consider network-level security to restrict access to your MQTT broker.
+- The service uses a batch file to bypass PowerShell execution policy for scripts in the `scripts` folder. While this is more secure than changing the system-wide execution policy, it still requires caution.
 
 ## Contributing
 
