@@ -1,4 +1,5 @@
 /scripts/*.ps1
 *.exe
 *.log
+*.txt
 config.json

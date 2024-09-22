@@ -144,12 +144,11 @@ func (p *program) messageHandler(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	batchPath := filepath.Join(p.scriptDir, "run_ps.bat")
 	scriptPath := filepath.Join(p.scriptDir, scriptName)
 
 	p.logger.Debug(fmt.Sprintf("Executing script: %s", scriptPath))
 
-	cmd := exec.Command(batchPath, scriptPath)
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
 
 	// Capture stdout and stderr
 	var out bytes.Buffer
@@ -193,14 +192,7 @@ func main() {
 		return
 	}
 
-	prg.logger.Debug("Service created, loading config...")
-
-	if err := prg.loadConfig(); err != nil {
-		prg.logger.Error(fmt.Sprintf("Failed to load config: %v", err))
-		return
-	}
-
-	prg.logger.Debug("Config loaded, running service...")
+	prg.logger.Debug("Service created, running service...")
 
 	err = s.Run()
 	if err != nil {
