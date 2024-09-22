@@ -55,6 +55,7 @@ func (l *Logger) Log(message string, level LogLevel) {
 		defer f.Close()
 		logger := log.New(f, "", log.LstdFlags)
 		logger.Println(message)
+		f.Sync() // Force write to disk
 	}
 
 	// Windows Event logging

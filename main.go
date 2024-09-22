@@ -2,11 +2,13 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -20,6 +22,7 @@ type Config struct {
 	ClientID      string            `json:"client_id"`
 	Topic         string            `json:"topic"`
 	LogLevel      string            `json:"log_level"`
+	ScriptTimeout int               `json:"script_timeout"`
 	Commands      map[string]string `json:"commands"`
 }
 
@@ -38,7 +41,6 @@ func newProgram() (*program, error) {
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
 
-	// Set the script directory
 	exePath, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable path: %v", err)
@@ -90,6 +92,12 @@ func (p *program) Start(s service.Service) error {
 }
 
 func (p *program) run() {
+	defer func() {
+		if r := recover(); r != nil {
+			p.logger.Error(fmt.Sprintf("Recovered from panic in run: %v\nStack trace: %s", r, debug.Stack()))
+		}
+	}()
+
 	p.logger.Debug("Run function started")
 
 	opts := mqtt.NewClientOptions().AddBroker(p.config.BrokerAddress)
@@ -106,35 +114,71 @@ func (p *program) run() {
 
 	p.mqttClient = mqtt.NewClient(opts)
 
-	// Attempt initial connection
-	p.logger.Debug("Attempting initial connection to MQTT broker...")
-	if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		p.logger.Error(fmt.Sprintf("Initial connection failed: %v", token.Error()))
-	} else {
-		p.logger.Debug("Initial connection successful")
+	for {
+		p.logger.Debug(fmt.Sprintf("Attempting to connect to MQTT broker at %s...", p.config.BrokerAddress))
+		if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
+			p.logger.Error(fmt.Sprintf("Connection failed: %v", token.Error()))
+			time.Sleep(time.Second * 10)
+		} else {
+			p.logger.Debug("Connection successful")
+			break
+		}
 	}
 
-	// Keep the service running
 	for {
+		if !p.mqttClient.IsConnected() {
+			p.logger.Debug("Connection lost, attempting to reconnect...")
+			if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
+				p.logger.Error(fmt.Sprintf("Reconnection failed: %v", token.Error()))
+			} else {
+				p.logger.Debug("Reconnection successful")
+			}
+		} else {
+			p.logger.Debug("MQTT client is connected")
+		}
 		time.Sleep(time.Minute)
 		p.logger.Debug("Service is still running...")
 	}
 }
 
 func (p *program) onConnect(client mqtt.Client) {
-	p.logger.Debug("Reconnected to MQTT broker")
-	if token := client.Subscribe(p.config.Topic, 0, p.messageHandler); token.Wait() && token.Error() != nil {
-		errMsg := fmt.Sprintf("Failed to subscribe to topic: %v", token.Error())
+	defer func() {
+		if r := recover(); r != nil {
+			p.logger.Error(fmt.Sprintf("Recovered from panic in onConnect: %v\nStack trace: %s", r, debug.Stack()))
+		}
+	}()
+
+	p.logger.Debug("Connected to MQTT broker")
+
+	// Subscribe to the command topic
+	if token := client.Subscribe(p.config.Topic, 0, p.commandHandler); token.Wait() && token.Error() != nil {
+		errMsg := fmt.Sprintf("Failed to subscribe to command topic: %v", token.Error())
 		p.logger.Error(errMsg)
+	} else {
+		p.logger.Debug(fmt.Sprintf("Successfully subscribed to command topic: %s", p.config.Topic))
+	}
+
+	// Subscribe to the response topic
+	responseTopic := p.config.Topic + "/response"
+	if token := client.Subscribe(responseTopic, 0, p.responseHandler); token.Wait() && token.Error() != nil {
+		errMsg := fmt.Sprintf("Failed to subscribe to response topic: %v", token.Error())
+		p.logger.Error(errMsg)
+	} else {
+		p.logger.Debug(fmt.Sprintf("Successfully subscribed to response topic: %s", responseTopic))
 	}
 }
 
 func (p *program) onConnectionLost(client mqtt.Client, err error) {
-	errMsg := fmt.Sprintf("Connection to MQTT broker lost: %v", err)
-	p.logger.Error(errMsg)
+	p.logger.Error(fmt.Sprintf("Connection to MQTT broker lost: %v", err))
 }
 
-func (p *program) messageHandler(client mqtt.Client, msg mqtt.Message) {
+func (p *program) commandHandler(client mqtt.Client, msg mqtt.Message) {
+	defer func() {
+		if r := recover(); r != nil {
+			p.logger.Error(fmt.Sprintf("Recovered from panic in commandHandler: %v\nStack trace: %s", r, debug.Stack()))
+		}
+	}()
+
 	command := string(msg.Payload())
 	p.logger.Debug(fmt.Sprintf("Received command: %s", command))
 
@@ -145,22 +189,47 @@ func (p *program) messageHandler(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	scriptPath := filepath.Join(p.scriptDir, scriptName)
-
 	p.logger.Debug(fmt.Sprintf("Executing script: %s", scriptPath))
 
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+	timeout := time.Duration(p.config.ScriptTimeout) * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	// Capture stdout and stderr
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		p.logger.Error(fmt.Sprintf("Script execution timed out for command: %s", command))
+		output := "Script execution timed out"
+		p.publishResponse(client, output)
+		return
+	}
+
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Error executing script for command '%s': %v\nStderr: %s", command, err, stderr.String()))
+		errMsg := fmt.Sprintf("Error executing script for command '%s': %v\nStderr: %s", command, err, stderr.String())
+		p.logger.Error(errMsg)
+		p.publishResponse(client, errMsg)
 	} else {
-		p.logger.Debug(fmt.Sprintf("Successfully executed command: %s\nOutput: %s", command, out.String()))
+		output := out.String()
+		p.logger.Debug(fmt.Sprintf("Successfully executed command: %s\nOutput: %s", command, output))
+		p.publishResponse(client, output)
+	}
+}
+
+func (p *program) responseHandler(client mqtt.Client, msg mqtt.Message) {
+	p.logger.Debug(fmt.Sprintf("Received response: %s", string(msg.Payload())))
+}
+
+func (p *program) publishResponse(client mqtt.Client, message string) {
+	responseTopic := p.config.Topic + "/response"
+	if token := client.Publish(responseTopic, 0, false, message); token.Wait() && token.Error() != nil {
+		p.logger.Error(fmt.Sprintf("Failed to publish script output: %v", token.Error()))
 	}
 }
 

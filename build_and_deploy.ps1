@@ -12,13 +12,26 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# Timeout for the service to start
+Write-Host "Waiting for system catchup..."
+Start-Sleep -Seconds 1
+
 # Remove the existing service
 Write-Host "Removing existing service..."
 sc.exe delete MQTTPowershellService
 
+# Timeout for the service to start
+Write-Host "Waiting for system catchup..."
+Start-Sleep -Seconds 1
+
 # Install the new service
 Write-Host "Installing new service..."
-New-Service -Name "MQTTPowershellService" -BinaryPathName (Resolve-Path .\MQTTPowershellService.exe).Path -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic
+New-Service -Name "MQTTPowershellService" -BinaryPathName (Resolve-Path .\MQTTPowershellService.exe).Path -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
+
+# Timeout for the service to start
+Write-Host "Waiting for system catchup..."
+Start-Sleep -Seconds 1
+
 
 # Start the service
 Write-Host "Starting the service..."

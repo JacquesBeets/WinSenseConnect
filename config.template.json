@@ -1,5 +1,6 @@
 {
   "log_level": "debug",
+  "script_timeout": 300, 
   "broker_address": "tcp://192.168.0.3:1883",
   "username": "your_username",
   "password": "your_password",
