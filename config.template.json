@@ -7,8 +7,21 @@
   "client_id": "my-windows-automation-service",
   "topic": "windows/commands",
   "commands": {
-    "shutdown_windows": "shutdown_windows.ps1",
-    "restart_windows": "restart_windows.ps1",
-    "launch_app": "launch_app.ps1"
+    "shutdown_windows": {
+      "script_path": "shutdown_windows.ps1",
+      "run_as_user": false
+    },
+    "restart_windows": {
+      "script_path": "restart_windows.ps1",
+      "run_as_user": false
+    },
+    "launch_app": {
+      "script_path": "launch_app.ps1",
+      "run_as_user": true
+    },
+    "test_notification": {
+      "script_path": "test_notification.ps1",
+      "run_as_user": true
+    }
   }
 }

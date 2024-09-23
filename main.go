@@ -1,29 +1,48 @@
 package main
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"syscall"
 	"time"
+	"unsafe"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/kardianos/service"
+	"golang.org/x/sys/windows"
 )
 
+var (
+	modWtsapi32              = windows.NewLazySystemDLL("Wtsapi32.dll")
+	procWTSQueryUserToken    = modWtsapi32.NewProc("WTSQueryUserToken")
+	procWTSEnumerateSessions = modWtsapi32.NewProc("WTSEnumerateSessionsW")
+	procWTSFreeMemory        = modWtsapi32.NewProc("WTSFreeMemory")
+)
+
+type WTS_SESSION_INFO struct {
+	SessionID     uint32
+	WindowStation *uint16
+	State         uint32
+}
+
 type Config struct {
-	BrokerAddress string            `json:"broker_address"`
-	Username      string            `json:"username"`
-	Password      string            `json:"password"`
-	ClientID      string            `json:"client_id"`
-	Topic         string            `json:"topic"`
-	LogLevel      string            `json:"log_level"`
-	ScriptTimeout int               `json:"script_timeout"`
-	Commands      map[string]string `json:"commands"`
+	BrokerAddress string                  `json:"broker_address"`
+	Username      string                  `json:"username"`
+	Password      string                  `json:"password"`
+	ClientID      string                  `json:"client_id"`
+	Topic         string                  `json:"topic"`
+	LogLevel      string                  `json:"log_level"`
+	ScriptTimeout int                     `json:"script_timeout"`
+	Commands      map[string]ScriptConfig `json:"commands"`
+}
+
+type ScriptConfig struct {
+	ScriptPath string `json:"script_path"`
+	RunAsUser  bool   `json:"run_as_user"`
 }
 
 type program struct {
@@ -88,6 +107,39 @@ func (p *program) Start(s service.Service) error {
 	}
 	p.logger.Debug("Config loaded, about to start run function")
 	go p.run()
+	return nil
+}
+
+func getActiveSessionID() (uint32, error) {
+	var count uint32
+	var sessions uintptr
+	ret, _, err := procWTSEnumerateSessions.Call(0, 0, 1, uintptr(unsafe.Pointer(&sessions)), uintptr(unsafe.Pointer(&count)))
+	if ret == 0 {
+		return 0, fmt.Errorf("WTSEnumerateSessions failed: %v", err)
+	}
+	defer procWTSFreeMemory.Call(sessions)
+
+	type WTS_SESSION_INFO struct {
+		SessionID     uint32
+		WindowStation *uint16
+		State         uint32
+	}
+
+	for i := uint32(0); i < count; i++ {
+		session := *(*WTS_SESSION_INFO)(unsafe.Pointer(sessions + uintptr(i)*unsafe.Sizeof(WTS_SESSION_INFO{})))
+		if session.State == 0 { // WTSActive
+			return session.SessionID, nil
+		}
+	}
+
+	return 0, fmt.Errorf("no active session found")
+}
+
+func wtsQueryUserToken(session uint32, token *windows.Token) error {
+	r1, _, e1 := procWTSQueryUserToken.Call(uintptr(session), uintptr(unsafe.Pointer(token)))
+	if r1 == 0 {
+		return error(e1)
+	}
 	return nil
 }
 
@@ -172,6 +224,49 @@ func (p *program) onConnectionLost(client mqtt.Client, err error) {
 	p.logger.Error(fmt.Sprintf("Connection to MQTT broker lost: %v", err))
 }
 
+func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
+	sessionID, err := getActiveSessionID()
+	if err != nil {
+		return "", fmt.Errorf("failed to get active session ID: %v", err)
+	}
+
+	var userToken windows.Token
+	err = wtsQueryUserToken(sessionID, &userToken)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user token: %v", err)
+	}
+	defer userToken.Close()
+
+	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-Command",
+		fmt.Sprintf("Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process; & '%s'", scriptPath))
+	cmd.SysProcAttr = &syscall.SysProcAttr{Token: syscall.Token(userToken)}
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
+	}
+
+	return string(output), nil
+}
+
+func (p *program) runAsLocalSystem(scriptPath string) (string, error) {
+	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
+	}
+
+	return string(output), nil
+}
+
+func (p *program) executeScript(scriptPath string, runAsUser bool) (string, error) {
+	if runAsUser {
+		return p.runAsLoggedInUser(scriptPath)
+	} else {
+		return p.runAsLocalSystem(scriptPath)
+	}
+}
+
 func (p *program) commandHandler(client mqtt.Client, msg mqtt.Message) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -182,41 +277,21 @@ func (p *program) commandHandler(client mqtt.Client, msg mqtt.Message) {
 	command := string(msg.Payload())
 	p.logger.Debug(fmt.Sprintf("Received command: %s", command))
 
-	scriptName, exists := p.config.Commands[command]
+	scriptConfig, exists := p.config.Commands[command]
 	if !exists {
 		p.logger.Error(fmt.Sprintf("Unknown command: %s", command))
 		return
 	}
 
-	scriptPath := filepath.Join(p.scriptDir, scriptName)
+	scriptPath := filepath.Join(p.scriptDir, scriptConfig.ScriptPath)
 	p.logger.Debug(fmt.Sprintf("Executing script: %s", scriptPath))
 
-	timeout := time.Duration(p.config.ScriptTimeout) * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		p.logger.Error(fmt.Sprintf("Script execution timed out for command: %s", command))
-		output := "Script execution timed out"
-		p.publishResponse(client, output)
-		return
-	}
-
+	output, err := p.executeScript(scriptPath, scriptConfig.RunAsUser)
 	if err != nil {
-		errMsg := fmt.Sprintf("Error executing script for command '%s': %v\nStderr: %s", command, err, stderr.String())
+		errMsg := fmt.Sprintf("Error executing script for command '%s': %v", command, err)
 		p.logger.Error(errMsg)
 		p.publishResponse(client, errMsg)
 	} else {
-		output := out.String()
 		p.logger.Debug(fmt.Sprintf("Successfully executed command: %s\nOutput: %s", command, output))
 		p.publishResponse(client, output)
 	}

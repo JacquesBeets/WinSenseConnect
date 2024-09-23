@@ -12,26 +12,33 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-# Timeout for the service to start
-Write-Host "Waiting for system catchup..."
-Start-Sleep -Seconds 1
-
 # Remove the existing service
 Write-Host "Removing existing service..."
 sc.exe delete MQTTPowershellService
 
-# Timeout for the service to start
-Write-Host "Waiting for system catchup..."
-Start-Sleep -Seconds 1
+# Remove the log file if it exists
+$mqttLogPath = (Resolve-Path .\MQTTPowershellService.log).Path
+if(Test-Path $mqttLogPath) {
+    Remove-Item $mqttLogPath
+}
+
+Start-Sleep -Seconds 2
 
 # Install the new service
 Write-Host "Installing new service..."
-New-Service -Name "MQTTPowershellService" -BinaryPathName (Resolve-Path .\MQTTPowershellService.exe).Path -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
+$binaryPath = (Resolve-Path .\MQTTPowershellService.exe).Path
 
-# Timeout for the service to start
-Write-Host "Waiting for system catchup..."
-Start-Sleep -Seconds 1
+sc.exe create MQTTPowershellService binPath= "$binaryPath" start= auto obj= LocalSystem type= interact type= own DisplayName= "MQTT Powershell Automation Service"
 
+# Set description and display name
+sc.exe description MQTTPowershellService "Listens for MQTT messages and runs PowerShell scripts"
+# sc.exe config MQTTPowershellService DisplayName= "MQTT Powershell Automation Service" type= interact type= own
+
+# Set the required privilege
+Write-Host "Setting required privileges..."
+# sc.exe privs MQTTPowershellService SeAssignPrimaryTokenPrivilege
+
+Start-Sleep -Seconds 2
 
 # Start the service
 Write-Host "Starting the service..."
@@ -40,5 +47,10 @@ Start-Service -Name "MQTTPowershellService"
 # Check the service status
 $service = Get-Service -Name "MQTTPowershellService"
 Write-Host "Service status: $($service.Status)"
+
+# Verify privileges
+Write-Host "Verifying service privileges..."
+$privs = sc.exe privs MQTTPowershellService
+Write-Host $privs
 
 Write-Host "Deployment complete!"
