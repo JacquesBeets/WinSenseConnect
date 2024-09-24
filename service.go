@@ -111,7 +111,10 @@ func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 
 	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-Command",
 		fmt.Sprintf("Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope Process; & '%s'", scriptPath))
-	cmd.SysProcAttr = &syscall.SysProcAttr{Token: syscall.Token(userToken)}
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Token:         syscall.Token(userToken),
+		CreationFlags: windows.CREATE_NO_WINDOW,
+	}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -123,6 +126,9 @@ func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 
 func (p *program) runAsLocalSystem(scriptPath string) (string, error) {
 	cmd := exec.Command("powershell", "-ExecutionPolicy", "Bypass", "-File", scriptPath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		CreationFlags: windows.CREATE_NO_WINDOW,
+	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
