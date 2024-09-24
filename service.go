@@ -10,6 +10,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/gorilla/mux"
 	"github.com/kardianos/service"
 	"golang.org/x/sys/windows"
 )
@@ -19,6 +20,7 @@ type program struct {
 	config     Config
 	logger     *Logger
 	scriptDir  string
+	router     *mux.Router
 }
 
 func newProgram() (*program, error) {
@@ -33,7 +35,12 @@ func newProgram() (*program, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable path: %v", err)
 	}
+
+	// Set scripts directory
 	p.scriptDir = filepath.Join(filepath.Dir(exePath), "scripts")
+
+	// Init Router
+	p.router = mux.NewRouter()
 
 	return p, nil
 }
@@ -46,6 +53,7 @@ func (p *program) Start(s service.Service) error {
 		return err
 	}
 	p.logger.Debug("Config loaded, about to start run function")
+	go p.startHTTPServer()
 	go p.run()
 	return nil
 }
