@@ -10,7 +10,7 @@ func (p *program) startHTTPServer() {
 	r := p.router
 
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("./ui")))
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir("../frontend/.output/public")))
 
 	// API endpoints
 	r.HandleFunc("/api/config", p.handleGetConfig).Methods("GET")
@@ -18,7 +18,7 @@ func (p *program) startHTTPServer() {
 	r.HandleFunc("/api/scripts", p.handleListScripts).Methods("GET")
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
 
-	http.ListenAndServe(":8080", r)
+	http.ListenAndServe(":8077", r)
 }
 
 func (p *program) handleGetConfig(w http.ResponseWriter, r *http.Request) {
@@ -29,7 +29,7 @@ func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	var newConfig Config
 	json.NewDecoder(r.Body).Decode(&newConfig)
 	// Write new config to file
-	// This will later be saved in db
+	// This will later be saved in a db
 }
 
 func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
