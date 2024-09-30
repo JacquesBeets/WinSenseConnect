@@ -5,7 +5,8 @@ Stop-Service -Name "MQTTPowershellService" -ErrorAction SilentlyContinue
 
 # Build the Go program
 Write-Host "Building the Go program..."
-go build -o MQTTPowershellService.exe
+Set-Location .\backend
+go build -o ..\MQTTPowershellService.exe
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed. Exiting."
@@ -13,6 +14,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Remove the existing service
+Set-Location ..
 Write-Host "Removing existing service..."
 sc.exe delete MQTTPowershellService
 

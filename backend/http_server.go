@@ -2,30 +2,48 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 )
 
 func (p *program) startHTTPServer() {
+	p.logger.Debug("Starting HTTP server")
 	r := p.router
 
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
-	r.PathPrefix("/").Handler(http.FileServer(http.Dir("../frontend/.output/public")))
 
 	// API endpoints
 	r.HandleFunc("/api/config", p.handleGetConfig).Methods("GET")
 	r.HandleFunc("/api/config", p.handleUpdateConfig).Methods("POST")
 	r.HandleFunc("/api/scripts", p.handleListScripts).Methods("GET")
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
+	p.logger.Debug("Listening on port 8077")
+	err := http.ListenAndServe(":8077", r)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to start HTTP server: %v", err))
+	}
+}
 
-	http.ListenAndServe(":8077", r)
+func (p *program) handleAPIRoot(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api request")
+	// Print the contents of the frontend directory
+	// p.logger.Debug(string(http.Dir("../frontend/.output/public/index.html")))
+	json.NewEncoder(w).Encode("HErllo")
 }
 
 func (p *program) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(p.config)
+	p.logger.Debug("Handling /api/config GET request")
+	err := json.NewEncoder(w).Encode(p.config)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to encode config: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/config POST request")
 	var newConfig Config
 	json.NewDecoder(r.Body).Decode(&newConfig)
 	// Write new config to file
@@ -33,10 +51,12 @@ func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/scripts GET request")
 	files, _ := filepath.Glob(filepath.Join(p.scriptDir, "*.ps1"))
 	json.NewEncoder(w).Encode(files)
 }
 
 func (p *program) handleAddScript(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/scripts POST request")
 	// Logic to add new powershell scripts
 }
