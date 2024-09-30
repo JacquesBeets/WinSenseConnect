@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 )
 
@@ -11,25 +12,21 @@ func (p *program) startHTTPServer() {
 	p.logger.Debug("Starting HTTP server")
 	r := p.router
 
-	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
+	exePath, err := os.Executable()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+	}
+	staticPath := filepath.Join(filepath.Dir(exePath), "frontend/.output/public")
 
 	// API endpoints
 	r.HandleFunc("/api/config", p.handleGetConfig).Methods("GET")
 	r.HandleFunc("/api/config", p.handleUpdateConfig).Methods("POST")
 	r.HandleFunc("/api/scripts", p.handleListScripts).Methods("GET")
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
+	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
+	r.PathPrefix("/").Handler(http.FileServer(http.Dir(staticPath)))
 	p.logger.Debug("Listening on port 8077")
-	err := http.ListenAndServe(":8077", r)
-	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to start HTTP server: %v", err))
-	}
-}
-
-func (p *program) handleAPIRoot(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api request")
-	// Print the contents of the frontend directory
-	// p.logger.Debug(string(http.Dir("../frontend/.output/public/index.html")))
-	json.NewEncoder(w).Encode("HErllo")
+	http.ListenAndServe("0.0.0.0:8077", r)
 }
 
 func (p *program) handleGetConfig(w http.ResponseWriter, r *http.Request) {
