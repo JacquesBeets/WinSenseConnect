@@ -1,8 +1,8 @@
 <template>
-  <div class="hidden md:block">
-    <!-- <Menu /> -->
+  <div class="block h-full">
+    <Menu />
     <div class="border-t">
-      <div class="bg-background">
+      <div class="">
         <div class="grid lg:grid-cols-5">
           <!-- <Sidebar :playlists="playlists" class="hidden lg:block" /> -->
           <div class="col-span-3 lg:col-span-4 lg:border-l">
