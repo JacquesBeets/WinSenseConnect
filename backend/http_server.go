@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/rs/cors"
 )
 
 func (p *program) startHTTPServer() {
@@ -25,8 +27,19 @@ func (p *program) startHTTPServer() {
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(staticPath)))
+
+	// CORS Middleware
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	}).Handler(r)
+
 	p.logger.Debug("Listening on port 8077")
-	http.ListenAndServe("0.0.0.0:8077", r)
+	http.ListenAndServe("0.0.0.0:8077", corsHandler)
 }
 
 func (p *program) handleGetConfig(w http.ResponseWriter, r *http.Request) {
