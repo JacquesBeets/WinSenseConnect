@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   css: ['@/assets/css/tailwind.css'],
   app: {
     head: {
-      title: 'MQTTWin Control',
+      title: 'WinSense',
       meta: [
         { charset: 'utf-8' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },

@@ -2,7 +2,7 @@
   <div class="container">
     <div class="row">
       <div class="col-md-12">
-        <h1>MQTTWin Control</h1>
+        <h1>WinSense Connect</h1>
       </div>
     </div>
 
