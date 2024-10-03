@@ -5,16 +5,18 @@ export default {
   content: [],
   theme: {
     extend: {
-      'primary': colors.amber,
-      secondary: colors.slate,
-      accent: colors.amber,
-      neutral: colors.slate,
-      'base-content': colors.slate,
-      info: colors.cyan,
-      success: colors.green,
-      warning: colors.amber,
-      error: colors.red,
-      background: colors.slate,
+      colors: {
+        'primary': colors.amber,
+        secondary: colors.slate,
+        accent: colors.amber,
+        neutral: colors.slate,
+        'base-content': colors.slate,
+        info: colors.cyan,
+        success: colors.green,
+        warning: colors.amber,
+        error: colors.red,
+        background: 'rgb(15, 23, 42)',
+      },
     },
   },
   fontFamily: {
