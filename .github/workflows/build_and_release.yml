@@ -37,13 +37,15 @@ jobs:
 
     - name: Package release
       run: |
-        mkdir release
+        mkdir -p release/frontend/.output
+        mkdir release\scripts
         copy WinSenseConnect.exe release\
         copy config.template.json release\config.json
-        xcopy /E /I frontend\.output\public release\frontend
+        xcopy /E /I frontend\.output\public release\frontend\.output\public
+        copy scripts\test_notification.ps1 release\scripts\
 
     - name: Zip Release
-      run: Compress-Archive -Path release\* -DestinationPath WinSenseConnect-v${{ env.VERSION }}.zip
+      run: Compress-Archive -Path release -DestinationPath WinSenseConnect-v${{ env.VERSION }}.zip
           
     - name: Create Release
       id: create_release
