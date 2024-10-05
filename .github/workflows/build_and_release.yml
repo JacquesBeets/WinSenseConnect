@@ -1,0 +1,64 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set version
+      run: echo "VERSION=0.0.${{ github.run_number }}" >> $env:GITHUB_ENV
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.21
+
+    - name: Build Go binary
+      run: |
+        cd backend
+        go build -o ../WinSenseConnect.exe
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '18'
+
+    - name: Build Nuxt3 frontend
+      run: |
+        cd frontend
+        npm ci
+        npm run generate
+
+    - name: Package release
+      run: |
+        mkdir release
+        copy WinSenseConnect.exe release\
+        copy config.template.json release\config.json
+        xcopy /E /I frontend\.output\public release\frontend
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ env.VERSION }}
+        release_name: Release v${{ env.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./release
+        asset_name: WinSenseConnect-v${{ env.VERSION }}.zip
+        asset_content_type: application/zip

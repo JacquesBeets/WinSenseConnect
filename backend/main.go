@@ -8,7 +8,7 @@ import (
 
 func main() {
 	svcConfig := &service.Config{
-		Name:        "MQTTPowershellService",
+		Name:        "WinSenseConnect",
 		DisplayName: "MQTT Powershell Automation Service",
 		Description: "Listens for MQTT messages and runs PowerShell scripts",
 	}

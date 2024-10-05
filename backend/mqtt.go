@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"runtime/debug"
@@ -81,6 +82,32 @@ func (p *program) publishResponse(client mqtt.Client, message string) {
 	}
 }
 
+func (p *program) publishSensorData() {
+	ticker := time.NewTicker(time.Duration(p.config.SensorConfig.Interval) * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		sensorData, err := collectSensorData()
+		if err != nil {
+			p.logger.Error(fmt.Sprintf("Failed to collect sensor data: %v", err))
+			continue
+		}
+
+		jsonData, err := json.Marshal(sensorData)
+		if err != nil {
+			p.logger.Error(fmt.Sprintf("Failed to marshal sensor data: %v", err))
+			continue
+		}
+
+		token := p.mqttClient.Publish(p.config.SensorConfig.SensorTopic, 0, false, jsonData)
+		if token.Wait() && token.Error() != nil {
+			p.logger.Error(fmt.Sprintf("Failed to publish sensor data: %v", token.Error()))
+		} else {
+			p.logger.Debug("Successfully published sensor data")
+		}
+	}
+}
+
 func (p *program) setupMQTTClient() {
 	opts := mqtt.NewClientOptions().AddBroker(p.config.BrokerAddress)
 	opts.SetClientID(p.config.ClientID)
@@ -95,4 +122,8 @@ func (p *program) setupMQTTClient() {
 	opts.SetConnectRetryInterval(time.Second * 10)
 
 	p.mqttClient = mqtt.NewClient(opts)
+
+	if p.config.SensorConfig.Enabled {
+		go p.publishSensorData()
+	}
 }

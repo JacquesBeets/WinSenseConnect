@@ -16,11 +16,17 @@ type Config struct {
 	LogLevel      string                  `json:"log_level"`
 	ScriptTimeout int                     `json:"script_timeout"`
 	Commands      map[string]ScriptConfig `json:"commands"`
+	SensorConfig  SensorConfig            `json:"sensor_config"`
 }
 
 type ScriptConfig struct {
 	ScriptPath string `json:"script_path"`
 	RunAsUser  bool   `json:"run_as_user"`
+}
+type SensorConfig struct {
+	Enabled     bool   `json:"enabled"`
+	Interval    int    `json:"interval"`
+	SensorTopic string `json:"sensor_topic"`
 }
 
 func (p *program) loadConfig() error {
