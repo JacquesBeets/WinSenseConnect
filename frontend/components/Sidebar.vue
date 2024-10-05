@@ -12,5 +12,8 @@
     <NuxtLink to="/settings" class="text-lg">
       MQTT
     </NuxtLink>
+    <NuxtLink to="/settings" class="text-lg">
+      LOGS
+    </NuxtLink>
   </div>
 </template>
