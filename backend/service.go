@@ -26,7 +26,7 @@ type program struct {
 func newProgram() (*program, error) {
 	p := &program{}
 	var err error
-	p.logger, err = NewLogger("MQTTPowershellService.log", "debug", "MQTTPowershellService")
+	p.logger, err = NewLogger("WinSenseConnect.log", "debug", "WinSenseConnect")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}

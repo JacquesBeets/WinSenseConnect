@@ -51,15 +51,15 @@ This project is a Windows service that listens for MQTT messages and executes Po
 5. Build the Go program:
 
    ```go
-   go build -o MQTTPowershellService.exe
+   go build -o WinSenseConnect.exe
    ```
 
 6. Open PowerShell as Administrator and run the following commands to install and start the service:
    - Replace `C:\your\path\to` with the path to the executable on your computer.
   
    ```powershell
-   New-Service -Name "MQTTPowershellService" -BinaryPathName "C:\your\path\to\MQTTPowershellService.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
-   Start-Service -Name "MQTTPowershellService"
+   New-Service -Name "WinSenseConnect" -BinaryPathName "C:\your\path\to\WinSenseConnect.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
+   Start-Service -Name "WinSenseConnect"
    ```
 
 ## Usage
@@ -73,7 +73,7 @@ To trigger a command, publish a message to your MQTT topic with the command as t
 The service logs its activities to two places:
 
 1. Windows Event Log: You can view these logs in the Event Viewer under Windows Logs > Application.
-2. A log file: Located in the same directory as the executable, named `MQTTPowershellService.log`.
+2. A log file: Located in the same directory as the executable, named `WinSenseConnect.log`.
 
 ## Modifying Commands
 
@@ -82,7 +82,7 @@ To add or modify commands:
 1. Stop the service:
 
    ```powershell
-   Stop-Service -Name "MQTTPowershellService"
+   Stop-Service -Name "WinSenseConnect"
    ```
 
 2. Edit the `config.json` file to add or change command entries.
@@ -92,20 +92,20 @@ To add or modify commands:
 4. Start the service:
 
    ```powershell
-   Start-Service -Name "MQTTPowershellService"
+   Start-Service -Name "WinSenseConnect"
    ```
 
 ## Troubleshooting
 
 If you encounter issues:
 
-1. Check the log file `MQTTPowershellService.log` in the same directory as the executable.
+1. Check the log file `WinSenseConnect.log` in the same directory as the executable.
 2. Ensure your MQTT broker is running and accessible.
 3. Verify that the PowerShell scripts exist in the `scripts` folder.
 4. Check that the service is running:
 
    ```powershell
-   Get-Service -Name "MQTTPowershellService"
+   Get-Service -Name "WinSenseConnect"
    ```
 
 ## Uninstalling
@@ -115,14 +115,14 @@ To remove the service:
 1. Stop and delete the service:
 
    ```powershell
-   Stop-Service -Name "MQTTPowershellService"
-   Remove-Service -Name "MQTTPowershellService"
+   Stop-Service -Name "WinSenseConnect"
+   Remove-Service -Name "WinSenseConnect"
    ```
 
    For older versions of PowerShell:
 
    ```powershell
-   sc.exe delete "MQTTPowershellService"
+   sc.exe delete "WinSenseConnect"
    ```
 
 2. Delete the executable, configuration files, and the `scripts` folder.
