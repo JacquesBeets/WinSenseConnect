@@ -12,6 +12,7 @@ type ConfigModel struct {
 	ClientID      string    `db:"client_id"`
 	Topic         string    `db:"topic"`
 	LogLevel      string    `db:"log_level"`
+	ScriptTimeout int       `db:"script_timeout"`
 	CreatedAt     time.Time `db:"created_at"`
 	UpdatedAt     time.Time `db:"updated_at"`
 }
