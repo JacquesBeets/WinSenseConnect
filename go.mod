@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/kardianos/service v1.2.2 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
+	github.com/mattn/go-sqlite3 v1.14.24 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/shirou/gopsutil/v4 v4.24.9 // indirect
