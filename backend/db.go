@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -43,17 +44,17 @@ func NewDB() (*DB, error) {
 func (db *DB) InitSchema(logger *Logger) error {
 	// Drop tables if they exist
 	// logger.Debug("Dropping tables if they exist...")
-	// _, err := db.Exec(`DROP TABLE IF EXISTS configs`)
-	// if err != nil {
-	// 	return err
+	// _, dropErr := db.Exec(`DROP TABLE IF EXISTS configs`)
+	// if dropErr != nil {
+	// 	return dropErr
 	// }
-	// _, err = db.Exec(`DROP TABLE IF EXISTS script_configs`)
-	// if err != nil {
-	// 	return err
+	// _, dropErr = db.Exec(`DROP TABLE IF EXISTS script_configs`)
+	// if dropErr != nil {
+	// 	return dropErr
 	// }
-	// _, err = db.Exec(`DROP TABLE IF EXISTS sensor_configs`)
-	// if err != nil {
-	// 	return err
+	// _, dropErr = db.Exec(`DROP TABLE IF EXISTS sensor_configs`)
+	// if dropErr != nil {
+	// 	return dropErr
 	// }
 
 	// Create tables
@@ -109,15 +110,55 @@ func (db *DB) InitSchema(logger *Logger) error {
 		INSERT INTO configs (id, broker_address, username, password, client_id, topic, log_level, script_timeout, created_at, updated_at)
 		VALUES (1, 'tcp://0.0.0.0:1883', 'your_username', 'your_password', 'my-windows-automation-service', 'windows/commands', 'debug', 300, '2023-07-01 12:00:00', '2023-07-01 12:00:00');
 
-		INSERT INTO script_configs (id, name, script_path, script_timeout, run_as_user, created_at, updated_at)
-		VALUES (1, 'test_notification', 'test_notification.ps1', 300, true, '2023-07-01 12:00:00', '2023-07-01 12:00:00');
-
 		INSERT INTO sensor_configs (id, name, enabled, interval, sensor_topic, created_at, updated_at)
 		VALUES (1, 'cpu_usage', false, 60, 'windows/sensors/cpu_usage', '2023-07-01 12:00:00', '2023-07-01 12:00:00');
 	`)
+		if err != nil {
+			return err
+		}
+	}
+	err = db.AddScriptsFromDir()
+	return err
+}
+
+func (db *DB) AddScriptsFromDir() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to get executable path: %v", err)
+	}
+	dir := filepath.Join(filepath.Dir(exePath), "scripts")
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("failed to read directory: %v", err)
 	}
 
-	return err
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		// Check if db has script with same script path
+		var script ScriptConfig
+		err := db.QueryRow("SELECT id, name, script_path, run_as_user, script_timeout, created_at, updated_at FROM script_configs WHERE script_path = ?", file.Name()).Scan(&script)
+		// split file name into name and extension
+		filename := strings.Split(file.Name(), ".")[0]
+
+		if err == sql.ErrNoRows {
+			// If not, add it
+			script := ScriptConfig{
+				Name:          filename,
+				ScriptPath:    file.Name(),
+				RunAsUser:     true,
+				ScriptTimeout: 300,
+			}
+			err = db.CreateScriptConfig(&script)
+			if err != nil {
+				return fmt.Errorf("failed to create script config: %v", err)
+			}
+		}
+	}
+	return nil
 }
 
 func (db *DB) GetConfig() (*Config, error) {
@@ -145,7 +186,7 @@ func (db *DB) GetConfig() (*Config, error) {
 	}
 	configsScriptArray := make(map[string]ScriptConfig)
 	for _, config := range *configsScript {
-		configsScriptArray[config.ScriptPath] = config
+		configsScriptArray[config.Name] = config
 	}
 
 	configsSensor, err := db.GetSensorConfigs()
@@ -283,6 +324,22 @@ func (db *DB) CreateSensorConfig(sensorConfig *SensorConfig) error {
 		sensorConfig.Enabled,
 		sensorConfig.Interval,
 		sensorConfig.SensorTopic,
+		now,
+		now,
+	)
+	return err
+}
+
+func (db *DB) CreateScriptConfig(scriptConf *ScriptConfig) error {
+	now := time.Now()
+	_, err := db.Exec(`
+		INSERT INTO script_configs (
+			name, script_path, run_as_user, script_timeout, created_at, updated_at
+		) VALUES (?, ?, ?, ?, ?, ?)`,
+		scriptConf.Name,
+		scriptConf.ScriptPath,
+		scriptConf.RunAsUser,
+		scriptConf.ScriptTimeout,
 		now,
 		now,
 	)

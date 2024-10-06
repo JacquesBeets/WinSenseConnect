@@ -1,5 +1,5 @@
 <template>
-  <form @submit.prevent="saveConfig" class="max-w-3xl mx-auto">
+  <form  class="max-w-3xl mx-auto">
     <h1 class="text-3xl font-bold mb-6">MQTT Configuration</h1>
     <div class="form-control">
       <label for="brokerAddress">Broker Address</label>
@@ -34,24 +34,58 @@
       <input type="number" id="scriptTimeout" v-model="config.script_timeout" />
     </div>
     <div class="form-control">
-      <button class="btn-primary ml-auto" type="submit">Save</button>
+      <button @click.stop="saveConfig" class="btn-primary ml-auto" :disabled="isSaving">
+        {{ isSaving ? 'Saving...' : 'Save' }}
+      </button>
     </div>
   </form>
 </template>
 
 <script setup>
-  const config = ref({})  
+const { $toast } = useNuxtApp()
 
-  const {data: configData} = await useFetch('http://localhost:8077/api/config')
+const config = ref({})
+const isSaving = ref(false)
+
+
+const { data: configData } = await useFetch('http://localhost:8077/api/config')
+if (configData.value) {
   config.value = JSON.parse(configData.value)
-
   console.log(config.value)
-  
-  const saveConfig = () => {
-    const data = JSON.stringify(config.value)
-    useFetch('http://localhost:8077/api/config', {
+} else {
+  console.error('Failed to fetch configuration')
+  $toast.error('Failed to load configuration')
+}
+
+const saveConfig = async () => {
+  isSaving.value = true
+  try {
+    const { error: saveError } = await useFetch('http://localhost:8077/api/config', {
       method: 'POST',
-      body: data
+      body: config.value
     })
+
+    if (saveError.value) {
+      throw new Error('Failed to save configuration')
+    }
+
+    $toast.success('Configuration saved successfully, Restarting service...')
+
+    // Restart the service
+    const { error: restartError } = await useFetch('http://localhost:8077/api/restart', {
+      method: 'POST'
+    })
+
+    if (restartError.value) {
+      throw new Error('Failed to restart service')
+    }
+
+    $toast.success('Service restarted successfully')
+  } catch (error) {
+    console.error('Error:', error)
+    $toast.error(error.message)
+  } finally {
+    isSaving.value = false
   }
+}
 </script>

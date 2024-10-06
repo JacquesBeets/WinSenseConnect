@@ -167,3 +167,20 @@ func (p *program) executeScript(scriptPath string, runAsUser bool) (string, erro
 		return p.runAsLocalSystem(scriptPath)
 	}
 }
+
+func (p *program) restartService() error {
+	p.logger.Debug("Restarting service")
+	err := p.Stop(nil)
+	if err != nil {
+		return fmt.Errorf("failed to stop service: %v", err)
+	}
+	// clear mqtt client
+	p.mqttClient = nil
+	time.Sleep(time.Second * 5)
+	p.logger.Debug("Service stopped, restarting...")
+	err = p.Start(nil)
+	if err != nil {
+		return fmt.Errorf("failed to start service: %v", err)
+	}
+	return nil
+}
