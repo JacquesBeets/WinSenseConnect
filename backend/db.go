@@ -42,21 +42,21 @@ func NewDB() (*DB, error) {
 
 func (db *DB) InitSchema() error {
 	// Drop tables if they exist
-	_, err := db.Exec(`DROP TABLE IF EXISTS configs`)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(`DROP TABLE IF EXISTS script_configs`)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(`DROP TABLE IF EXISTS sensor_configs`)
-	if err != nil {
-		return err
-	}
+	// _, err := db.Exec(`DROP TABLE IF EXISTS configs`)
+	// if err != nil {
+	// 	return err
+	// }
+	// _, err = db.Exec(`DROP TABLE IF EXISTS script_configs`)
+	// if err != nil {
+	// 	return err
+	// }
+	// _, err = db.Exec(`DROP TABLE IF EXISTS sensor_configs`)
+	// if err != nil {
+	// 	return err
+	// }
 
 	// Create tables
-	_, err = db.Exec(`
+	_, err := db.Exec(`
 		CREATE TABLE IF NOT EXISTS configs (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			broker_address TEXT NOT NULL,
@@ -99,29 +99,13 @@ func (db *DB) InitSchema() error {
 	_, err = db.Exec(`
 		INSERT INTO configs (id, broker_address, username, password, client_id, topic, log_level, script_timeout, created_at, updated_at)
 		VALUES (1, 'tcp://0.0.0.0:1883', 'your_username', 'your_password', 'my-windows-automation-service', 'windows/commands', 'debug', 300, '2023-07-01 12:00:00', '2023-07-01 12:00:00');
-	`)
 
-	if err != nil {
-		return err
-	}
-
-	// Add test script if it doesn't exist
-	_, err = db.Exec(`
 		INSERT INTO script_configs (id, name, script_path, script_timeout, run_as_user, created_at, updated_at)
-		VALUES (1, 'test_notification', 'test_notification.ps1', 300, true, '2023-07-01 12:00:00', '2023-07-01 12:00:00')
-	`)
-	if err != nil {
-		return err
-	}
+		VALUES (1, 'test_notification', 'test_notification.ps1', 300, true, '2023-07-01 12:00:00', '2023-07-01 12:00:00');
 
-	// Add default sensor config if it doesn't exist
-	_, err = db.Exec(`
 		INSERT INTO sensor_configs (id, name, enabled, interval, sensor_topic, created_at, updated_at)
 		VALUES (1, 'cpu_usage', false, 60, 'windows/sensors/cpu_usage', '2023-07-01 12:00:00', '2023-07-01 12:00:00');
 	`)
-	if err != nil {
-		return err
-	}
 
 	return err
 }
