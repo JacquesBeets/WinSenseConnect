@@ -45,7 +45,7 @@ func newProgram() (*program, error) {
 	}
 
 	// Init Schema
-	err = p.db.InitSchema()
+	err = p.db.InitSchema(p.logger)
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Failed to initialize database schema: %v", err))
 		return nil, err

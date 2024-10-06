@@ -40,8 +40,9 @@ func NewDB() (*DB, error) {
 	return &DB{db}, nil
 }
 
-func (db *DB) InitSchema() error {
+func (db *DB) InitSchema(logger *Logger) error {
 	// Drop tables if they exist
+	// logger.Debug("Dropping tables if they exist...")
 	// _, err := db.Exec(`DROP TABLE IF EXISTS configs`)
 	// if err != nil {
 	// 	return err
@@ -94,9 +95,17 @@ func (db *DB) InitSchema() error {
 	if err != nil {
 		return err
 	}
-
-	// Add default data if it doesn't exist
-	_, err = db.Exec(`
+	// Check if the default data already exists
+	var defaultDataExists bool
+	err = db.QueryRow("SELECT id FROM configs LIMIT 1").Scan(&defaultDataExists)
+	logger.Debug(fmt.Sprintf("Default data exists: %v", defaultDataExists))
+	if err != nil && err != sql.ErrNoRows {
+		logger.Error(fmt.Sprintf("Failed to check if default data exists: %v", err))
+		return err
+	}
+	if !defaultDataExists {
+		// Add default data if it doesn't exist
+		_, err = db.Exec(`
 		INSERT INTO configs (id, broker_address, username, password, client_id, topic, log_level, script_timeout, created_at, updated_at)
 		VALUES (1, 'tcp://0.0.0.0:1883', 'your_username', 'your_password', 'my-windows-automation-service', 'windows/commands', 'debug', 300, '2023-07-01 12:00:00', '2023-07-01 12:00:00');
 
@@ -106,6 +115,7 @@ func (db *DB) InitSchema() error {
 		INSERT INTO sensor_configs (id, name, enabled, interval, sensor_topic, created_at, updated_at)
 		VALUES (1, 'cpu_usage', false, 60, 'windows/sensors/cpu_usage', '2023-07-01 12:00:00', '2023-07-01 12:00:00');
 	`)
+	}
 
 	return err
 }
