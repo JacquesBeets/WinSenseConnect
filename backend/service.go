@@ -21,6 +21,7 @@ type program struct {
 	logger     *Logger
 	scriptDir  string
 	router     *mux.Router
+	db         *DB
 }
 
 func newProgram() (*program, error) {
@@ -34,6 +35,20 @@ func newProgram() (*program, error) {
 	exePath, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable path: %v", err)
+	}
+
+	// Init DB
+	p.db, err = NewDB()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to create database: %v", err))
+		return nil, err
+	}
+
+	// Init Schema
+	err = p.db.InitSchema(p.logger)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to initialize database schema: %v", err))
+		return nil, err
 	}
 
 	// Set scripts directory
@@ -151,4 +166,21 @@ func (p *program) executeScript(scriptPath string, runAsUser bool) (string, erro
 	} else {
 		return p.runAsLocalSystem(scriptPath)
 	}
+}
+
+func (p *program) restartService() error {
+	p.logger.Debug("Restarting service")
+	err := p.Stop(nil)
+	if err != nil {
+		return fmt.Errorf("failed to stop service: %v", err)
+	}
+	// clear mqtt client
+	p.mqttClient = nil
+	time.Sleep(time.Second * 5)
+	p.logger.Debug("Service stopped, restarting...")
+	err = p.Start(nil)
+	if err != nil {
+		return fmt.Errorf("failed to start service: %v", err)
+	}
+	return nil
 }

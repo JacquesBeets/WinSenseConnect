@@ -5,7 +5,7 @@
 
         <div class="grid lg:grid-cols-6 h-full">
           <Sidebar class="block col-span-1 p-4" />
-          <div class="border-slate-400 col-span-4 lg:border-l">
+          <div class="border-slate-400 col-span-5 lg:border-l" >
             <div class="h-full px-4 py-6 lg:px-8">
               <slot />
             </div>

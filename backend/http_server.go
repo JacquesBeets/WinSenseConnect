@@ -25,6 +25,7 @@ func (p *program) startHTTPServer() {
 	r.HandleFunc("/api/config", p.handleUpdateConfig).Methods("POST")
 	r.HandleFunc("/api/scripts", p.handleListScripts).Methods("GET")
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
+	r.HandleFunc("/api/restart", p.handleRestartService).Methods("POST")
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(staticPath)))
 
@@ -55,9 +56,20 @@ func (p *program) handleGetConfig(w http.ResponseWriter, r *http.Request) {
 func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	p.logger.Debug("Handling /api/config POST request")
 	var newConfig Config
-	json.NewDecoder(r.Body).Decode(&newConfig)
-	// Write new config to file
-	// This will later be saved in a db
+	err := json.NewDecoder(r.Body).Decode(&newConfig)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to decode config: %v", err))
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+	p.config = newConfig
+	err = p.db.UpdateConfig(&p.config)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to save config: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
@@ -69,4 +81,15 @@ func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
 func (p *program) handleAddScript(w http.ResponseWriter, r *http.Request) {
 	p.logger.Debug("Handling /api/scripts POST request")
 	// Logic to add new powershell scripts
+}
+
+func (p *program) handleRestartService(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/restart POST request")
+	err := p.restartService()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to restart service: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }

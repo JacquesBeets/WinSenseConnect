@@ -9,7 +9,7 @@
     <NuxtLink to="/settings" class="text-lg">
       Scripts
     </NuxtLink>
-    <NuxtLink to="/settings" class="text-lg">
+    <NuxtLink to="/config/mqtt" class="text-lg">
       MQTT
     </NuxtLink>
     <NuxtLink to="/settings" class="text-lg">

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"runtime/debug"
@@ -83,29 +82,32 @@ func (p *program) publishResponse(client mqtt.Client, message string) {
 }
 
 func (p *program) publishSensorData() {
-	ticker := time.NewTicker(time.Duration(p.config.SensorConfig.Interval) * time.Second)
-	defer ticker.Stop()
+	// TODO: Uncomment this when sensors are implemented
+	// Must be able to manage multiple sensors independently
 
-	for range ticker.C {
-		sensorData, err := collectSensorData()
-		if err != nil {
-			p.logger.Error(fmt.Sprintf("Failed to collect sensor data: %v", err))
-			continue
-		}
+	// ticker := time.NewTicker(time.Duration(p.config.SensorConfig.Interval) * time.Second)
+	// defer ticker.Stop()
 
-		jsonData, err := json.Marshal(sensorData)
-		if err != nil {
-			p.logger.Error(fmt.Sprintf("Failed to marshal sensor data: %v", err))
-			continue
-		}
+	// for range ticker.C {
+	// 	sensorData, err := collectSensorData()
+	// 	if err != nil {
+	// 		p.logger.Error(fmt.Sprintf("Failed to collect sensor data: %v", err))
+	// 		continue
+	// 	}
 
-		token := p.mqttClient.Publish(p.config.SensorConfig.SensorTopic, 0, false, jsonData)
-		if token.Wait() && token.Error() != nil {
-			p.logger.Error(fmt.Sprintf("Failed to publish sensor data: %v", token.Error()))
-		} else {
-			p.logger.Debug("Successfully published sensor data")
-		}
-	}
+	// 	jsonData, err := json.Marshal(sensorData)
+	// 	if err != nil {
+	// 		p.logger.Error(fmt.Sprintf("Failed to marshal sensor data: %v", err))
+	// 		continue
+	// 	}
+
+	// 	token := p.mqttClient.Publish(p.config.SensorConfig.SensorTopic, 0, false, jsonData)
+	// 	if token.Wait() && token.Error() != nil {
+	// 		p.logger.Error(fmt.Sprintf("Failed to publish sensor data: %v", token.Error()))
+	// 	} else {
+	// 		p.logger.Debug("Successfully published sensor data")
+	// 	}
+	// }
 }
 
 func (p *program) setupMQTTClient() {
@@ -123,7 +125,7 @@ func (p *program) setupMQTTClient() {
 
 	p.mqttClient = mqtt.NewClient(opts)
 
-	if p.config.SensorConfig.Enabled {
+	if p.config.SensorConfigEnabled {
 		go p.publishSensorData()
 	}
 }

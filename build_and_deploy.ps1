@@ -6,7 +6,7 @@ Stop-Service -Name "WinSenseConnect" -ErrorAction SilentlyContinue
 # Build the Go program
 Write-Host "Building the Go program..."
 Set-Location .\backend
-go build -o ..\WinSenseConnect.exe
+$env:CGO_ENABLED=1; go build -o ..\WinSenseConnect.exe 
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Build failed. Exiting."

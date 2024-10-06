@@ -1,6 +1,7 @@
 # /frontend
 /scripts/*.ps1
 !scripts/test_notification.ps1
+/data/** 
 *.exe
 *.log
 *.txt
