@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"runtime/debug"
 	"time"
 
@@ -51,24 +50,10 @@ func (p *program) commandHandler(client mqtt.Client, msg mqtt.Message) {
 	command := string(msg.Payload())
 	p.logger.Debug(fmt.Sprintf("Received command: %s", command))
 
-	scriptConfig, exists := p.config.Commands[command]
-	if !exists {
-		p.logger.Error(fmt.Sprintf("Unknown command: %s", command))
-		return
-	}
-
-	scriptPath := filepath.Join(p.scriptDir, scriptConfig.ScriptPath)
-	p.logger.Debug(fmt.Sprintf("Executing script: %s", scriptPath))
-
-	output, err := p.executeScript(scriptPath, scriptConfig.RunAsUser)
-	if err != nil {
-		errMsg := fmt.Sprintf("Error executing script for command '%s': %v", command, err)
-		p.logger.Error(errMsg)
-		p.publishResponse(client, errMsg)
-	} else {
-		p.logger.Debug(fmt.Sprintf("Successfully executed command: %s\nOutput: %s", command, output))
-		p.publishResponse(client, output)
-	}
+	// TODO: Implement command handling logic
+	// This might involve querying the database for the command configuration
+	// For now, we'll just log an error
+	p.logger.Error(fmt.Sprintf("Command handling not implemented: %s", command))
 }
 
 func (p *program) responseHandler(client mqtt.Client, msg mqtt.Message) {
@@ -83,7 +68,7 @@ func (p *program) publishResponse(client mqtt.Client, message string) {
 }
 
 func (p *program) publishSensorData() {
-	ticker := time.NewTicker(time.Duration(p.config.SensorConfig.Interval) * time.Second)
+	ticker := time.NewTicker(time.Duration(p.sensorConfig.Interval) * time.Second)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -99,7 +84,7 @@ func (p *program) publishSensorData() {
 			continue
 		}
 
-		token := p.mqttClient.Publish(p.config.SensorConfig.SensorTopic, 0, false, jsonData)
+		token := p.mqttClient.Publish(p.sensorConfig.SensorTopic, 0, false, jsonData)
 		if token.Wait() && token.Error() != nil {
 			p.logger.Error(fmt.Sprintf("Failed to publish sensor data: %v", token.Error()))
 		} else {
@@ -123,7 +108,7 @@ func (p *program) setupMQTTClient() {
 
 	p.mqttClient = mqtt.NewClient(opts)
 
-	if p.config.SensorConfig.Enabled {
+	if p.sensorConfig.Enabled {
 		go p.publishSensorData()
 	}
 }

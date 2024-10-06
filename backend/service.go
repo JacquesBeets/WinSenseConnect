@@ -16,11 +16,13 @@ import (
 )
 
 type program struct {
-	mqttClient mqtt.Client
-	config     Config
-	logger     *Logger
-	scriptDir  string
-	router     *mux.Router
+	mqttClient   mqtt.Client
+	config       Config
+	sensorConfig SensorConfig
+	logger       *Logger
+	scriptDir    string
+	router       *mux.Router
+	db           *DB
 }
 
 func newProgram() (*program, error) {
@@ -31,6 +33,21 @@ func newProgram() (*program, error) {
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
 
+	// Init DB
+	p.db, err = NewDB()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to create DB: %v", err))
+		return nil, err
+	}
+	defer p.db.Close()
+
+	// Init DB schema
+	if err := p.db.InitSchema(); err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to init DB schema: %v", err))
+		return nil, err
+	}
+
+	// Get executable path
 	exePath, err := os.Executable()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get executable path: %v", err)
@@ -47,14 +64,39 @@ func newProgram() (*program, error) {
 
 func (p *program) Start(s service.Service) error {
 	p.logger.Debug("Starting service")
-	if err := p.loadConfig(); err != nil {
-		errMsg := fmt.Sprintf("Failed to load config: %v", err)
-		p.logger.Error(errMsg)
+
+	if err := p.db.Ping(); err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to ping DB: %v", err))
 		return err
 	}
+
+	// Load config from DB
+	config, err := p.db.GetConfig()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to get config from DB: %v", err))
+		return err
+	}
+	p.config = *config
+
+	// Load sensor config from DB
+	sensorConfig, err := p.db.GetSensorConfig()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to get sensor config from DB: %v", err))
+		return err
+	}
+	p.sensorConfig = *sensorConfig
+
 	p.logger.Debug("Config loaded, about to start run function")
 	go p.startHTTPServer()
 	go p.run()
+	return nil
+}
+
+func (p *program) Stop(s service.Service) error {
+	p.logger.Debug("Stopping service")
+	if p.mqttClient != nil && p.mqttClient.IsConnected() {
+		p.mqttClient.Disconnect(250)
+	}
 	return nil
 }
 
@@ -96,12 +138,12 @@ func (p *program) run() {
 	}
 }
 
-func (p *program) Stop(s service.Service) error {
-	p.logger.Debug("Stopping service")
-	if p.mqttClient != nil && p.mqttClient.IsConnected() {
-		p.mqttClient.Disconnect(250)
+func (p *program) executeScript(scriptPath string, runAsUser bool) (string, error) {
+	if runAsUser {
+		return p.runAsLoggedInUser(scriptPath)
+	} else {
+		return p.runAsLocalSystem(scriptPath)
 	}
-	return nil
 }
 
 func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
@@ -143,12 +185,4 @@ func (p *program) runAsLocalSystem(scriptPath string) (string, error) {
 	}
 
 	return string(output), nil
-}
-
-func (p *program) executeScript(scriptPath string, runAsUser bool) (string, error) {
-	if runAsUser {
-		return p.runAsLoggedInUser(scriptPath)
-	} else {
-		return p.runAsLocalSystem(scriptPath)
-	}
 }

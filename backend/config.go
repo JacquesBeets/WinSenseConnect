@@ -7,26 +7,9 @@ import (
 	"path/filepath"
 )
 
-type Config struct {
-	BrokerAddress string                  `json:"broker_address"`
-	Username      string                  `json:"username"`
-	Password      string                  `json:"password"`
-	ClientID      string                  `json:"client_id"`
-	Topic         string                  `json:"topic"`
-	LogLevel      string                  `json:"log_level"`
-	ScriptTimeout int                     `json:"script_timeout"`
-	Commands      map[string]ScriptConfig `json:"commands"`
-	SensorConfig  SensorConfig            `json:"sensor_config"`
-}
-
 type ScriptConfig struct {
 	ScriptPath string `json:"script_path"`
 	RunAsUser  bool   `json:"run_as_user"`
-}
-type SensorConfig struct {
-	Enabled     bool   `json:"enabled"`
-	Interval    int    `json:"interval"`
-	SensorTopic string `json:"sensor_topic"`
 }
 
 func (p *program) loadConfig() error {
