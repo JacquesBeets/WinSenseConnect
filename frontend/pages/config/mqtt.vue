@@ -2,7 +2,7 @@
   <form  class="max-w-3xl mx-auto">
     <h1 class="text-3xl font-bold mb-6">MQTT Configuration</h1>
     <div class="form-control">
-      <label for="brokerAddress">Broker Address</label>
+      <label for="brokerAddress">Broker IP Address and port</label>
       <input type="text" id="brokerAddress" v-model="config.broker_address" />
     </div>
     <div class="form-control">
@@ -14,11 +14,11 @@
       <input type="password" id="password" v-model="config.password" />
     </div>
     <div class="form-control">
-      <label for="clientID">Client ID</label>
+      <label for="clientID">Client ID <small class="opacity-30">(Must be unique and identifiable)</small></label>
       <input type="text" id="clientID" v-model="config.client_id" />
     </div>
     <div class="form-control">
-      <label for="topic">Topic</label>
+      <label for="topic">Topic <small class="opacity-30">(eg: winsense/{{ config.topic }}/{{ config.client_id }})</small></label>
       <input type="text" id="topic" v-model="config.topic" />
     </div>
     <div class="form-control">

@@ -9,6 +9,12 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+var (
+	topicBase           = "winsense/"
+	configTopic         = ""
+	configResponseTopic = ""
+)
+
 func (p *program) onConnect(client mqtt.Client) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -18,21 +24,24 @@ func (p *program) onConnect(client mqtt.Client) {
 
 	p.logger.Debug("Connected to MQTT broker")
 
+	// Set topics
+	configTopic = topicBase + p.config.Topic + "/" + p.config.ClientID
+	configResponseTopic = topicBase + p.config.Topic + "/" + p.config.ClientID + "/response"
+
 	// Subscribe to the command topic
-	if token := client.Subscribe(p.config.Topic, 0, p.commandHandler); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(configTopic, 0, p.commandHandler); token.Wait() && token.Error() != nil {
 		errMsg := fmt.Sprintf("Failed to subscribe to command topic: %v", token.Error())
 		p.logger.Error(errMsg)
 	} else {
-		p.logger.Debug(fmt.Sprintf("Successfully subscribed to command topic: %s", p.config.Topic))
+		p.logger.Debug(fmt.Sprintf("Successfully subscribed to command topic: %s", configTopic))
 	}
 
 	// Subscribe to the response topic
-	responseTopic := p.config.Topic + "/response"
-	if token := client.Subscribe(responseTopic, 0, p.responseHandler); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(configResponseTopic, 0, p.responseHandler); token.Wait() && token.Error() != nil {
 		errMsg := fmt.Sprintf("Failed to subscribe to response topic: %v", token.Error())
 		p.logger.Error(errMsg)
 	} else {
-		p.logger.Debug(fmt.Sprintf("Successfully subscribed to response topic: %s", responseTopic))
+		p.logger.Debug(fmt.Sprintf("Successfully subscribed to response topic: %s", configResponseTopic))
 	}
 }
 
@@ -75,8 +84,7 @@ func (p *program) responseHandler(client mqtt.Client, msg mqtt.Message) {
 }
 
 func (p *program) publishResponse(client mqtt.Client, message string) {
-	responseTopic := p.config.Topic + "/response"
-	if token := client.Publish(responseTopic, 0, false, message); token.Wait() && token.Error() != nil {
+	if token := client.Publish(configResponseTopic, 0, false, message); token.Wait() && token.Error() != nil {
 		p.logger.Error(fmt.Sprintf("Failed to publish script output: %v", token.Error()))
 	}
 }

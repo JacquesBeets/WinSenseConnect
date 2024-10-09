@@ -6,12 +6,15 @@
     <!-- <NuxtLink to="/settings" class="text-lg">
       Sensors
     </NuxtLink> -->
-    <NuxtLink to="/scripts" class="text-lg">
+    <NuxtLink to="/config/scripts" class="text-lg">
       Scripts
     </NuxtLink>
     <NuxtLink to="/config/mqtt" class="text-lg">
       MQTT Setup
     </NuxtLink>
+    <!-- <NuxtLink to="/config/home-assistant" class="text-lg">
+      Home Asssistant
+    </NuxtLink> -->
     <NuxtLink to="/logs" class="text-lg">
       LOGS
     </NuxtLink>
