@@ -20,11 +20,11 @@ const (
 
 type Logger struct {
 	filePath string
-	level    LogLevel
+	config   *Config
 	elog     *eventlog.Log
 }
 
-func NewLogger(filename string, level string, serviceName string) (*Logger, error) {
+func NewLogger(filename string, config *Config, serviceName string) (*Logger, error) {
 	logPath, err := getLogFilePath(filename)
 	if err != nil {
 		return nil, err
@@ -37,13 +37,20 @@ func NewLogger(filename string, level string, serviceName string) (*Logger, erro
 
 	return &Logger{
 		filePath: logPath,
-		level:    getLogLevel(level),
+		config:   config,
 		elog:     elog,
 	}, nil
 }
 
 func (l *Logger) Log(message string, level LogLevel) {
-	if level > l.level {
+	var configLevel LogLevel
+	if l.config == nil {
+		configLevel = LogDebug // Default to debug level if config is nil
+	} else {
+		configLevel = getLogLevel(l.config.LogLevel)
+	}
+
+	if level > configLevel {
 		return
 	}
 

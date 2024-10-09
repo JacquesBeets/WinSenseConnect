@@ -18,14 +18,14 @@ type Config struct {
 	Sensors             map[string]SensorConfig `json:"sensors"`
 }
 
-func (p *program) loadConfig() error {
-	p.logger.Debug("Starting to load config...")
+func (p *program) loadConfig(logger *Logger) error {
+	logger.Debug("Starting to load config...")
 	conf, err := p.db.GetConfig()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to get config: %v", err))
+		logger.Error(fmt.Sprintf("Failed to get config: %v", err))
 		return err
 	}
 	p.config = *conf
-	p.logger.Debug("Config loaded successfully")
+	logger.Debug("Config loaded successfully")
 	return nil
 }

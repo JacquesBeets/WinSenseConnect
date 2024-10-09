@@ -25,8 +25,8 @@
       <label for="logLevel">Log Level</label>
       <select id="logLevel" v-model="config.log_level">
         <option value="none">No Logs</option>
-        <option value="debug">Debug</option>
-        <option value="error">Error</option>
+        <option value="debug">Debug - Logs everything</option>
+        <option value="errors">Log Errors Only</option>
       </select>
     </div>
     <div class="form-control">

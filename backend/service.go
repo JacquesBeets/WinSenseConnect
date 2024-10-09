@@ -27,21 +27,29 @@ type program struct {
 func newProgram() (*program, error) {
 	p := &program{}
 	var err error
-	p.logger, err = NewLogger("WinSenseConnect.log", "debug", "WinSenseConnect")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %v", err)
-	}
 
-	exePath, err := os.Executable()
+	// Create a temporary logger
+	tempLogger, err := NewLogger("WinSenseConnect.log", nil, "WinSenseConnect")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get executable path: %v", err)
+		return nil, fmt.Errorf("failed to create temporary logger: %v", err)
 	}
 
 	// Init DB
 	p.db, err = NewDB()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to create database: %v", err))
+		tempLogger.Error(fmt.Sprintf("Failed to create database: %v", err))
 		return nil, err
+	}
+
+	// Load config
+	if err := p.loadConfig(tempLogger); err != nil {
+		return nil, fmt.Errorf("failed to load config: %v", err)
+	}
+
+	// Initialize final logger with loaded config
+	p.logger, err = NewLogger("WinSenseConnect.log", &p.config, "WinSenseConnect")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
 
 	// Init Schema
@@ -49,6 +57,11 @@ func newProgram() (*program, error) {
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Failed to initialize database schema: %v", err))
 		return nil, err
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get executable path: %v", err)
 	}
 
 	// Set scripts directory
@@ -62,11 +75,6 @@ func newProgram() (*program, error) {
 
 func (p *program) Start(s service.Service) error {
 	p.logger.Debug("Starting service")
-	if err := p.loadConfig(); err != nil {
-		errMsg := fmt.Sprintf("Failed to load config: %v", err)
-		p.logger.Error(errMsg)
-		return err
-	}
 	p.logger.Debug("Config loaded, about to start run function")
 	go p.startHTTPServer()
 	go p.run()
