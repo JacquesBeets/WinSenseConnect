@@ -3,16 +3,16 @@
     <NuxtLink to="/" class="text-lg">
       Dashboard
     </NuxtLink>
-    <NuxtLink to="/settings" class="text-lg">
+    <!-- <NuxtLink to="/settings" class="text-lg">
       Sensors
-    </NuxtLink>
-    <NuxtLink to="/settings" class="text-lg">
+    </NuxtLink> -->
+    <NuxtLink to="/scripts" class="text-lg">
       Scripts
     </NuxtLink>
     <NuxtLink to="/config/mqtt" class="text-lg">
-      MQTT
+      MQTT Setup
     </NuxtLink>
-    <NuxtLink to="/settings" class="text-lg">
+    <NuxtLink to="/logs" class="text-lg">
       LOGS
     </NuxtLink>
   </div>
