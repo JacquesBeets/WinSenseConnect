@@ -26,6 +26,7 @@ func (p *program) startHTTPServer() {
 	r.HandleFunc("/api/config", p.handleGetConfig).Methods("GET")
 	r.HandleFunc("/api/config", p.handleUpdateConfig).Methods("POST")
 	r.HandleFunc("/api/scripts", p.handleListScripts).Methods("GET")
+	r.HandleFunc("/api/scripts/{id}", p.handleGetScript).Methods("GET")
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
 	r.HandleFunc("/api/restart", p.handleRestartService).Methods("POST")
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend

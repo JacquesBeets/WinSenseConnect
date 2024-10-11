@@ -10,7 +10,7 @@
         <table class="table w-full">
           <thead>
             <tr>
-              <th>Command Name</th>
+              <th>MQTT Command Name</th>
               <th>Path</th>
               <th>Run as user</th>
               <th>Timeout</th>
@@ -37,35 +37,7 @@
 const { $toast } = useNuxtApp()
 const isSaving = ref(false)
 
-const scripts = ref([
-    {
-        "id": 3,
-        "name": "monitors_to_pc",
-        "script_path": "monitors_to_pc.ps1",
-        "run_as_user": true,
-        "script_timeout": 300,
-        "created_at": "2024-10-06T17:03:28.6027231+02:00",
-        "updated_at": "2024-10-06T17:03:28.6027231+02:00"
-    },
-    {
-        "id": 2,
-        "name": "monitors_to_mac",
-        "script_path": "monitors_to_mac.ps1",
-        "run_as_user": true,
-        "script_timeout": 300,
-        "created_at": "2024-10-06T17:03:28.6011647+02:00",
-        "updated_at": "2024-10-06T17:03:28.6011647+02:00"
-    },
-    {
-        "id": 1,
-        "name": "test_notification",
-        "script_path": "test_notification.ps1",
-        "run_as_user": true,
-        "script_timeout": 300,
-        "created_at": "2023-07-01T12:00:00Z",
-        "updated_at": "2023-07-01T12:00:00Z"
-    }
-])
+const scripts = ref([])
 
 const { data: scriptsData } = await useFetch('http://localhost:8077/api/scripts')
 if (scriptsData) {
