@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
+	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
@@ -74,8 +76,33 @@ func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
 	p.logger.Debug("Handling /api/scripts GET request")
-	files, _ := filepath.Glob(filepath.Join(p.scriptDir, "*.ps1"))
-	json.NewEncoder(w).Encode(files)
+
+	scritpConfig, err := p.db.GetScriptConfigs()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to get script configs: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(scritpConfig)
+}
+
+func (p *program) handleGetScript(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/scripts/:id GET request")
+	vars := mux.Vars(r)
+	id, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to parse id: %v", err))
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	scriptConfig, err := p.db.GetScriptConfig(id)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to get script config: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(scriptConfig)
 }
 
 func (p *program) handleAddScript(w http.ResponseWriter, r *http.Request) {

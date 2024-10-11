@@ -234,6 +234,23 @@ func (db *DB) GetScriptConfigs() (*ScriptConfigs, error) {
 	return &scriptConfigs, nil
 }
 
+func (db *DB) GetScriptConfig(id int64) (*ScriptConfig, error) {
+	var scriptConfig ScriptConfig
+	err := db.QueryRow("SELECT id, name, script_path, run_as_user, script_timeout, created_at, updated_at FROM script_configs WHERE id = ? ORDER BY id DESC LIMIT 1", id).Scan(
+		&scriptConfig.ID,
+		&scriptConfig.Name,
+		&scriptConfig.ScriptPath,
+		&scriptConfig.RunAsUser,
+		&scriptConfig.ScriptTimeout,
+		&scriptConfig.CreatedAt,
+		&scriptConfig.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get script config: %v", err)
+	}
+	return &scriptConfig, nil
+}
+
 func (db *DB) GetSensorConfigs() (*SensorConfigs, error) {
 	rows, err := db.Query("SELECT id, name, enabled, interval, sensor_topic, created_at, updated_at FROM sensor_configs ORDER BY id DESC")
 	if err != nil {
