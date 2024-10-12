@@ -12,10 +12,6 @@
       <label for="scriptPath">Script Path</label>
       <input type="text" id="scriptPath" v-model="script.script_path" />
     </div>
-    <!-- <div class="form-control">
-      <label for="runAsUser">Run as User</label>
-      <input type="checkbox" id="runAsUser" class="checkbox mr-auto" v-model="script.run_as_user"/>
-    </div> -->
     <div class="form-control">
       <div class="flex items-center me-6">
       <input v-model="script.run_as_user" checked id="primary-checkbox" type="checkbox" value="" class="w-6 h-6 text-primary-400 bg-gray-100 border-gray-300 rounded focus:ring-primary-500 dark:focus:ring-primary-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
