@@ -148,12 +148,14 @@ func (p *program) Stop(s service.Service) error {
 func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 	sessionID, err := getActiveSessionID()
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to get active session ID: %v", err))
 		return "", fmt.Errorf("failed to get active session ID: %v", err)
 	}
 
 	var userToken windows.Token
 	err = wtsQueryUserToken(sessionID, &userToken)
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to get user token: %v", err))
 		return "", fmt.Errorf("failed to get user token: %v", err)
 	}
 	defer userToken.Close()
@@ -167,6 +169,7 @@ func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
 	}
 
@@ -180,6 +183,7 @@ func (p *program) runAsLocalSystem(scriptPath string) (string, error) {
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
 	}
 
@@ -198,6 +202,7 @@ func (p *program) restartService() error {
 	p.logger.Debug("Restarting service")
 	err := p.Stop(nil)
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to stop service: %v", err)
 	}
 	// clear mqtt client
@@ -206,6 +211,7 @@ func (p *program) restartService() error {
 	p.logger.Debug("Service stopped, restarting...")
 	err = p.Start(nil)
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to start service: %v", err)
 	}
 	return nil
