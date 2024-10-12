@@ -30,6 +30,7 @@ func (p *program) startHTTPServer() {
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
 	r.HandleFunc("/api/restart", p.handleRestartService).Methods("POST")
 	r.HandleFunc("/api/events", p.eventHandler)
+	r.HandleFunc("/api/logs", p.handleGetLogs).Methods("GET")
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(staticPath)))
 
@@ -162,5 +163,45 @@ func (p *program) eventHandler(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		}
+	}
+}
+
+func (p *program) handleGetLogs(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/logs GET request")
+	exePath, err := os.Executable()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to get executable path: %v", err))
+	}
+	dir := filepath.Join(filepath.Dir(exePath), "WinSenseConnect.log")
+	// Read the log file
+	logContent, err := os.ReadFile(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// If the file doesn't exist, return an empty log array
+			p.logger.Debug("Log file not found. Returning empty log array.")
+			json.NewEncoder(w).Encode(map[string]string{"logs": ""})
+			return
+		}
+		p.logger.Error(fmt.Sprintf("Failed to read log file: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Create a response struct
+	response := struct {
+		Logs string `json:"logs"`
+	}{
+		Logs: string(logContent),
+	}
+
+	// Set the content type to JSON
+	w.Header().Set("Content-Type", "application/json")
+
+	// Encode and send the response
+	err = json.NewEncoder(w).Encode(response)
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to encode log response: %v", err))
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 }
