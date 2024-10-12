@@ -5,11 +5,11 @@
       <input type="text" id="scriptId" v-model="script.id" disabled/>
     </div>
     <div class="form-control">
-      <label for="name">MQTT Command Name</label>
+      <label for="name">MQTT Command</label>
       <input type="text" id="name" v-model="script.name" />
     </div>
     <div class="form-control">
-      <label for="scriptPath">Script Path</label>
+      <label for="scriptPath">Script Name</label>
       <input type="text" id="scriptPath" disabled v-model="script.script_path" />
     </div>
     <div class="form-control">
