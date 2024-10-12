@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/sys/windows/svc/eventlog"
 )
@@ -19,12 +21,19 @@ const (
 )
 
 type Logger struct {
-	filePath string
-	level    LogLevel
-	elog     *eventlog.Log
+	filePath     string
+	config       *Config
+	elog         *eventlog.Log
+	eventHandler func(event []byte)
 }
 
-func NewLogger(filename string, level string, serviceName string) (*Logger, error) {
+type LogEvent struct {
+	Timestamp time.Time `json:"timestamp"`
+	Message   string    `json:"message"`
+	Level     string    `json:"level"`
+}
+
+func NewLogger(filename string, config *Config, serviceName string, eventHandler func(event []byte)) (*Logger, error) {
 	logPath, err := getLogFilePath(filename)
 	if err != nil {
 		return nil, err
@@ -36,14 +45,22 @@ func NewLogger(filename string, level string, serviceName string) (*Logger, erro
 	}
 
 	return &Logger{
-		filePath: logPath,
-		level:    getLogLevel(level),
-		elog:     elog,
+		filePath:     logPath,
+		config:       config,
+		elog:         elog,
+		eventHandler: eventHandler,
 	}, nil
 }
 
 func (l *Logger) Log(message string, level LogLevel) {
-	if level > l.level {
+	var configLevel LogLevel
+	if l.config == nil {
+		configLevel = LogDebug // Default to debug level if config is nil
+	} else {
+		configLevel = getLogLevel(l.config.LogLevel)
+	}
+
+	if level > configLevel {
 		return
 	}
 
@@ -64,6 +81,19 @@ func (l *Logger) Log(message string, level LogLevel) {
 		l.elog.Info(1, message)
 	case LogErrors:
 		l.elog.Error(1, message)
+	}
+
+	// Send event to eventHandler
+	if l.eventHandler != nil {
+		event := LogEvent{
+			Timestamp: time.Now(),
+			Message:   message,
+			Level:     level.String(),
+		}
+		jsonEvent, err := json.Marshal(event)
+		if err == nil {
+			l.eventHandler(jsonEvent)
+		}
 	}
 }
 
@@ -89,6 +119,17 @@ func getLogLevel(level string) LogLevel {
 		return LogErrors
 	default:
 		return LogOff
+	}
+}
+
+func (l LogLevel) String() string {
+	switch l {
+	case LogDebug:
+		return "debug"
+	case LogErrors:
+		return "error"
+	default:
+		return "off"
 	}
 }
 

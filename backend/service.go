@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -16,32 +17,44 @@ import (
 )
 
 type program struct {
-	mqttClient mqtt.Client
-	config     Config
-	logger     *Logger
-	scriptDir  string
-	router     *mux.Router
-	db         *DB
+	mqttClient    mqtt.Client
+	config        Config
+	logger        *Logger
+	scriptDir     string
+	router        *mux.Router
+	db            *DB
+	eventChannels []chan []byte
+	eventMutex    sync.Mutex
 }
 
 func newProgram() (*program, error) {
-	p := &program{}
-	var err error
-	p.logger, err = NewLogger("WinSenseConnect.log", "debug", "WinSenseConnect")
-	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %v", err)
+	p := &program{
+		eventChannels: make([]chan []byte, 0),
 	}
+	var err error
 
-	exePath, err := os.Executable()
+	// Create a temporary logger
+	tempLogger, err := NewLogger("WinSenseConnect.log", nil, "WinSenseConnect", nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get executable path: %v", err)
+		return nil, fmt.Errorf("failed to create temporary logger: %v", err)
 	}
 
 	// Init DB
 	p.db, err = NewDB()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to create database: %v", err))
+		tempLogger.Error(fmt.Sprintf("Failed to create database: %v", err))
 		return nil, err
+	}
+
+	// Load config
+	if err := p.loadConfig(tempLogger); err != nil {
+		return nil, fmt.Errorf("failed to load config: %v", err)
+	}
+
+	// Initialize final logger with loaded config
+	p.logger, err = NewLogger("WinSenseConnect.log", &p.config, "WinSenseConnect", p.broadcastEvent)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
 
 	// Init Schema
@@ -49,6 +62,11 @@ func newProgram() (*program, error) {
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("Failed to initialize database schema: %v", err))
 		return nil, err
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get executable path: %v", err)
 	}
 
 	// Set scripts directory
@@ -60,13 +78,21 @@ func newProgram() (*program, error) {
 	return p, nil
 }
 
+func (p *program) broadcastEvent(event []byte) {
+	p.eventMutex.Lock()
+	defer p.eventMutex.Unlock()
+
+	for _, ch := range p.eventChannels {
+		select {
+		case ch <- event:
+		default:
+			// If the channel is full, we skip this client
+		}
+	}
+}
+
 func (p *program) Start(s service.Service) error {
 	p.logger.Debug("Starting service")
-	if err := p.loadConfig(); err != nil {
-		errMsg := fmt.Sprintf("Failed to load config: %v", err)
-		p.logger.Error(errMsg)
-		return err
-	}
 	p.logger.Debug("Config loaded, about to start run function")
 	go p.startHTTPServer()
 	go p.run()
@@ -122,12 +148,14 @@ func (p *program) Stop(s service.Service) error {
 func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 	sessionID, err := getActiveSessionID()
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to get active session ID: %v", err))
 		return "", fmt.Errorf("failed to get active session ID: %v", err)
 	}
 
 	var userToken windows.Token
 	err = wtsQueryUserToken(sessionID, &userToken)
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to get user token: %v", err))
 		return "", fmt.Errorf("failed to get user token: %v", err)
 	}
 	defer userToken.Close()
@@ -141,6 +169,7 @@ func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
 	}
 
@@ -154,6 +183,7 @@ func (p *program) runAsLocalSystem(scriptPath string) (string, error) {
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
 	}
 
@@ -172,6 +202,7 @@ func (p *program) restartService() error {
 	p.logger.Debug("Restarting service")
 	err := p.Stop(nil)
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to stop service: %v", err)
 	}
 	// clear mqtt client
@@ -180,6 +211,7 @@ func (p *program) restartService() error {
 	p.logger.Debug("Service stopped, restarting...")
 	err = p.Start(nil)
 	if err != nil {
+		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to start service: %v", err)
 	}
 	return nil
