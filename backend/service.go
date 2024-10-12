@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
 	"syscall"
 	"time"
 
@@ -16,20 +17,24 @@ import (
 )
 
 type program struct {
-	mqttClient mqtt.Client
-	config     Config
-	logger     *Logger
-	scriptDir  string
-	router     *mux.Router
-	db         *DB
+	mqttClient    mqtt.Client
+	config        Config
+	logger        *Logger
+	scriptDir     string
+	router        *mux.Router
+	db            *DB
+	eventChannels []chan []byte
+	eventMutex    sync.Mutex
 }
 
 func newProgram() (*program, error) {
-	p := &program{}
+	p := &program{
+		eventChannels: make([]chan []byte, 0),
+	}
 	var err error
 
 	// Create a temporary logger
-	tempLogger, err := NewLogger("WinSenseConnect.log", nil, "WinSenseConnect")
+	tempLogger, err := NewLogger("WinSenseConnect.log", nil, "WinSenseConnect", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary logger: %v", err)
 	}
@@ -47,7 +52,7 @@ func newProgram() (*program, error) {
 	}
 
 	// Initialize final logger with loaded config
-	p.logger, err = NewLogger("WinSenseConnect.log", &p.config, "WinSenseConnect")
+	p.logger, err = NewLogger("WinSenseConnect.log", &p.config, "WinSenseConnect", p.broadcastEvent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
@@ -71,6 +76,19 @@ func newProgram() (*program, error) {
 	p.router = mux.NewRouter()
 
 	return p, nil
+}
+
+func (p *program) broadcastEvent(event []byte) {
+	p.eventMutex.Lock()
+	defer p.eventMutex.Unlock()
+
+	for _, ch := range p.eventChannels {
+		select {
+		case ch <- event:
+		default:
+			// If the channel is full, we skip this client
+		}
+	}
 }
 
 func (p *program) Start(s service.Service) error {

@@ -29,6 +29,7 @@ func (p *program) startHTTPServer() {
 	r.HandleFunc("/api/scripts/{id}", p.handleGetScript).Methods("GET")
 	r.HandleFunc("/api/scripts", p.handleAddScript).Methods("POST")
 	r.HandleFunc("/api/restart", p.handleRestartService).Methods("POST")
+	r.HandleFunc("/api/events", p.eventHandler)
 	// Serve static files (our UI) - this will be added at build time from our Nuxt frontend
 	r.PathPrefix("/").Handler(http.FileServer(http.Dir(staticPath)))
 
@@ -120,4 +121,46 @@ func (p *program) handleRestartService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (p *program) eventHandler(w http.ResponseWriter, r *http.Request) {
+	p.logger.Debug("Handling /api/events SSE Events")
+	// Set CORS headers to allow all origins. You may want to restrict this to specific origins in a production environment.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Expose-Headers", "Content-Type")
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported!", http.StatusInternalServerError)
+		return
+	}
+
+	// Create a new channel for this client
+	events := make(chan []byte)
+	p.eventChannels = append(p.eventChannels, events)
+	defer func() {
+		// Remove this client's channel when the connection is closed
+		for i, ch := range p.eventChannels {
+			if ch == events {
+				p.eventChannels = append(p.eventChannels[:i], p.eventChannels[i+1:]...)
+				break
+			}
+		}
+		close(events)
+	}()
+
+	// Stream events to the client
+	for {
+		select {
+		case event := <-events:
+			fmt.Fprintf(w, "data: %s\n\n", event)
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
 }
