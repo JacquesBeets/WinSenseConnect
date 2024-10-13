@@ -2,13 +2,14 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"syscall"
 	"unsafe"
+
+	"systray/icon"
 
 	"github.com/getlantern/systray"
 	"golang.org/x/sys/windows"
@@ -55,7 +56,7 @@ func main() {
 
 func loadConfig() {
 	log.Println("Loading configuration")
-	file, err := ioutil.ReadFile("systray_config.json")
+	file, err := os.ReadFile("systray_config.json")
 	if err != nil {
 		log.Printf("Error reading systray config file: %v\n", err)
 		os.Exit(1)
@@ -71,7 +72,9 @@ func loadConfig() {
 
 func onReady() {
 	log.Println("Systray is ready")
-	systray.SetIcon(getIcon())
+	log.Printf("Icon data length: %d bytes\n", len(icon.IconBytes))
+	systray.SetIcon(icon.IconBytes)
+	log.Println("Icon set")
 	systray.SetTitle("WinSenseConnect Hotkeys")
 	systray.SetTooltip("WinSenseConnect Hotkey Listener")
 
@@ -86,11 +89,6 @@ func onReady() {
 
 func onExit() {
 	log.Println("Systray is exiting")
-}
-
-func getIcon() []byte {
-	// Replace this with actual icon data
-	return []byte{0}
 }
 
 func registerHotkeys() {
