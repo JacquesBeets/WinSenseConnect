@@ -1,0 +1,12 @@
+{
+  "hotkeyCommands": [
+    {
+      "hotkey": "Ctrl+Shift+1",
+      "command": "echo Hello, World!"
+    },
+    {
+      "hotkey": "Ctrl+Shift+2",
+      "command": "notepad.exe"
+    }
+  ]
+}
