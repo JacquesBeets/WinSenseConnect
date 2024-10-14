@@ -2,43 +2,79 @@
 
 # Self-elevate the script if required
 if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
- if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
-  $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
-  Start-Process -FilePath PowerShell.exe -Verb Runas -ArgumentList $CommandLine
-  Exit
- }
+    if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
+        $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
+        Start-Process -FilePath PowerShell.exe -Verb Runas -ArgumentList $CommandLine -Wait
+        Exit
+    }
 }
 
 # Rest of the script starts here
 Write-Host "Running with administrator privileges"
 
+# Get the script's directory
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Set-Location $scriptDir
+Write-Host "Current directory: $scriptDir"
+
+# Function to forcefully delete a file
+function Force-Delete($path) {
+    if (Test-Path $path) {
+        Write-Host "Attempting to delete: $path"
+        try {
+            Remove-Item -Path $path -Force -ErrorAction Stop
+            Write-Host "Successfully deleted: $path"
+        }
+        catch {
+            Write-Host "Failed to delete $path. Error: $_"
+            Write-Host "Attempting to release file handles..."
+            try {
+                $handle = [System.Diagnostics.Process]::GetCurrentProcess().Handle
+                $null = [PSClrInterop]::ReleaseFile($handle, $path)
+                Remove-Item -Path $path -Force -ErrorAction Stop
+                Write-Host "Successfully deleted after releasing handles: $path"
+            }
+            catch {
+                Write-Host "Still unable to delete $path. Error: $_"
+            }
+        }
+    }
+    else {
+        Write-Host "File not found: $path"
+    }
+}
+
 # Stop the service if it's running
-Stop-Service -Name "WinSenseConnect" -ErrorAction SilentlyContinue
-Stop-Process -Name "WinSenseConnectSystray" -ErrorAction SilentlyContinue
+Write-Host "Stopping WinSenseConnect service..."
+Stop-Service -Name "WinSenseConnect" -Force -ErrorAction SilentlyContinue
+Write-Host "Stopping WinSenseConnectSystray process..."
+Stop-Process -Name "WinSenseConnectSystray" -Force -ErrorAction SilentlyContinue
 
-# Remove the log file if it exists and delete the executables before building new ones
-$mqttLogPath = ".\WinSenseConnect.log"
-$winsenseConnectPath = ".\WinSenseConnect.exe"
-$winsenseConnectSystrayPath = ".\WinSenseConnectSystray.exe"
+# Wait for processes to fully stop
+Start-Sleep -Seconds 5
 
-if(Test-Path $mqttLogPath) {
-    Remove-Item $mqttLogPath
-}
-Start-Sleep -Seconds 1
-if(Test-Path $winsenseConnectPath) {
-    Remove-Item $winsenseConnectPath
-}
-Start-Sleep -Seconds 1
-if(Test-Path $winsenseConnectSystrayPath) {
-    Remove-Item $winsenseConnectSystrayPath
-}
+# Remove the log file and delete the executables
+$mqttLogPath = Join-Path $scriptDir "WinSenseConnect.log"
+$winsenseConnectPath = Join-Path $scriptDir "WinSenseConnect.exe"
+$winsenseConnectSystrayPath = Join-Path $scriptDir "WinSenseConnectSystray.exe"
 
+Write-Host "Attempting to delete files:"
+Write-Host "Log file: $mqttLogPath"
+Write-Host "WinSenseConnect: $winsenseConnectPath"
+Write-Host "WinSenseConnectSystray: $winsenseConnectSystrayPath"
+
+Force-Delete $mqttLogPath
+Force-Delete $winsenseConnectPath
+Force-Delete $winsenseConnectSystrayPath
+
+# Additional wait to ensure files are released
 Start-Sleep -Seconds 2
 
 # Build the main Go program
 Write-Host "Building the main Go program..."
-Set-Location .\backend
-$env:CGO_ENABLED=1; go build -o ..\WinSenseConnect.exe 
+$backendDir = Join-Path $scriptDir "backend"
+Set-Location $backendDir
+$env:CGO_ENABLED=1; go build -o (Join-Path $scriptDir "WinSenseConnect.exe")
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Main program build failed. Exiting."
@@ -49,28 +85,28 @@ Start-Sleep -Seconds 2
 
 # Build the systray application
 Write-Host "Building the systray application..."
-Set-Location ..\systray
+$systrayDir = Join-Path $scriptDir "systray"
+Set-Location $systrayDir
 $env:CGO_ENABLED=1;
-go build -o ..\WinSenseConnectSystray.exe -ldflags "-H=windowsgui"
+go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") -ldflags "-H=windowsgui"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Systray build failed. Exiting."
     exit 1
 }
 
-# Return to the root directory
-Set-Location ..
+# Return to the script directory
+Set-Location $scriptDir
 
 # Remove the existing service
 Write-Host "Removing existing service..."
 sc.exe delete WinSenseConnect
 
-
 Start-Sleep -Seconds 2
 
 # Install the new service
 Write-Host "Installing new service..."
-$binaryPath = (Resolve-Path .\WinSenseConnect.exe).Path
+$binaryPath = (Resolve-Path (Join-Path $scriptDir "WinSenseConnect.exe")).Path
 
 sc.exe create WinSenseConnect binPath= "$binaryPath" start= auto obj= LocalSystem type= interact type= own DisplayName= "WinSense MQTT & Server Service"
 
@@ -91,7 +127,11 @@ Start-Sleep -Seconds 2
 
 # Start the systray application
 Write-Host "Starting the systray application..."
-$binaryPathSystray = (Resolve-Path .\WinSenseConnectSystray.exe).Path
+$binaryPathSystray = (Resolve-Path (Join-Path $scriptDir "WinSenseConnectSystray.exe")).Path
 Start-Process -FilePath $binaryPathSystray
 
 Write-Host "Deployment complete!"
+
+# Pause to keep the window open
+Write-Host "Press any key to exit..."
+$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
