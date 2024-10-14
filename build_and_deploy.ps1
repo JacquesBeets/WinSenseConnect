@@ -110,7 +110,7 @@ Start-Sleep -Seconds 2
 Write-Host "Installing new service..."
 $binaryPath = (Resolve-Path (Join-Path $scriptDir "WinSenseConnect.exe")).Path
 
-sc.exe create WinSenseConnect binPath= "$binaryPath" start= auto obj= LocalSystem type= interact type= own DisplayName= "WinSense MQTT & Server Service"
+sc.exe create WinSenseConnect binPath= "$binaryPath" start= auto obj= LocalSystem type= own DisplayName= "WinSense MQTT & Server Service"
 
 # Set description and display name
 sc.exe description WinSenseConnect "Listens for MQTT messages and runs PowerShell scripts"
