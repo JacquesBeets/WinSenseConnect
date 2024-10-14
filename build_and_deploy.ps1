@@ -55,6 +55,7 @@ Start-Sleep -Seconds 5
 
 # Remove the log file and delete the executables
 $mqttLogPath = Join-Path $scriptDir "WinSenseConnect.log"
+$mqttLogPath = Join-Path $scriptDir "WinSenseConnectSystray.log"
 $winsenseConnectPath = Join-Path $scriptDir "WinSenseConnect.exe"
 $winsenseConnectSystrayPath = Join-Path $scriptDir "WinSenseConnectSystray.exe"
 
@@ -89,6 +90,7 @@ $systrayDir = Join-Path $scriptDir "systray"
 Set-Location $systrayDir
 $env:CGO_ENABLED=1;
 go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") -ldflags "-H=windowsgui"
+# go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") // Development
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Systray build failed. Exiting."

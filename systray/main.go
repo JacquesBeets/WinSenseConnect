@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -25,27 +26,48 @@ type SystrayConfig struct {
 var config SystrayConfig
 
 func main() {
-	log.SetOutput(os.Stdout)
+	// Set up logging to a file
+	logFile, err := os.OpenFile("WinSenseConnectSystray.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal("Failed to open log file:", err)
+	}
+	defer logFile.Close()
+
+	log.SetOutput(logFile)
 	log.Println("Starting WinSenseConnectSystray")
-	loadConfig()
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in main: %v\n", r)
+		}
+	}()
+
+	log.Println("Loading configuration")
+	err = loadConfig()
+	if err != nil {
+		log.Printf("Error loading configuration: %v\n", err)
+		return
+	}
+
+	log.Println("Registering hotkeys")
 	go registerHotkeys()
+
+	log.Println("Starting systray")
 	systray.Run(onReady, onExit)
 }
 
-func loadConfig() {
-	log.Println("Loading configuration")
+func loadConfig() error {
 	file, err := os.ReadFile("systray_config.json")
 	if err != nil {
-		log.Printf("Error reading systray config file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error reading systray config file: %v", err)
 	}
 
 	err = json.Unmarshal(file, &config)
 	if err != nil {
-		log.Printf("Error parsing systray config file: %v\n", err)
-		os.Exit(1)
+		return fmt.Errorf("error parsing systray config file: %v", err)
 	}
 	log.Printf("Loaded configuration: %+v\n", config)
+	return nil
 }
 
 func onReady() {
@@ -53,15 +75,27 @@ func onReady() {
 	log.Printf("Icon data length: %d bytes\n", len(icon.IconBytes))
 	systray.SetIcon(icon.IconBytes)
 	log.Println("Icon set")
+
 	systray.SetTitle("WinSenseConnect Hotkeys")
 	systray.SetTooltip("WinSenseConnect Hotkey Listener")
 
+	mShowQuickShortcuts := systray.AddMenuItem("Dashboard", "Open Dashboard in Browser")
 	mQuit := systray.AddMenuItem("Quit", "Quit the app")
 
 	go func() {
-		<-mQuit.ClickedCh
-		log.Println("Quit clicked, exiting")
-		systray.Quit()
+		for {
+			select {
+			case <-mShowQuickShortcuts.ClickedCh:
+				err := OpenURLInBrowser("http://localhost:8077")
+				if err != nil {
+					log.Printf("Error opening shortcuts view: %v", err)
+				}
+			case <-mQuit.ClickedCh:
+				log.Println("Quit clicked, exiting")
+				systray.Quit()
+				return
+			}
+		}
 	}()
 }
 
@@ -71,7 +105,6 @@ func onExit() {
 }
 
 func registerHotkeys() {
-	log.Println("Registering hotkeys")
 	for _, hc := range config.HotkeyCommands {
 		keys := parseHotkey(hc.Hotkey)
 		log.Printf("Registering hotkey: %s\n", hc.Hotkey)
