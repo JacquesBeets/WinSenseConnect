@@ -96,6 +96,12 @@ func (p *program) Start(s service.Service) error {
 	p.logger.Debug("Config loaded, about to start run function")
 	go p.startHTTPServer()
 	go p.run()
+
+	// Start systray if it's not running
+	if err := p.startSystrayIfNotRunning(); err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to start systray: %v", err))
+	}
+
 	return nil
 }
 
@@ -213,6 +219,39 @@ func (p *program) restartService() error {
 	if err != nil {
 		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to start service: %v", err)
+	}
+	return nil
+}
+
+func (p *program) isSystrayRunning() bool {
+	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq WinSenseConnectSystray.exe", "/FO", "CSV", "/NH")
+	output, err := cmd.Output()
+	if err != nil {
+		p.logger.Error(fmt.Sprintf("Failed to check if systray is running: %v", err))
+		return false
+	}
+	return len(output) > 0
+}
+
+func (p *program) startSystrayIfNotRunning() error {
+	if !p.isSystrayRunning() {
+		p.logger.Debug("Systray is not running. Starting it now.")
+		exePath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path: %v", err)
+		}
+		systrayPath := filepath.Join(filepath.Dir(exePath), "WinSenseConnectSystray.exe")
+		cmd := exec.Command(systrayPath)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			CreationFlags: windows.CREATE_NO_WINDOW,
+		}
+		err = cmd.Start()
+		if err != nil {
+			return fmt.Errorf("failed to start systray: %v", err)
+		}
+		p.logger.Debug("Systray started successfully.")
+	} else {
+		p.logger.Debug("Systray is already running.")
 	}
 	return nil
 }
