@@ -19,7 +19,7 @@ func main() {
 		fmt.Printf("Failed to create program: %v\n", err)
 		return
 	}
-	defer prg.logger.Close() // Close the logger when the service is stopped
+	defer prg.logger.Close()
 
 	s, err := service.New(prg, svcConfig)
 	if err != nil {

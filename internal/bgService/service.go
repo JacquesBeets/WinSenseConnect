@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"win-sense-connect/internal/common"
 	"win-sense-connect/internal/shared"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -20,8 +21,8 @@ import (
 
 type program struct {
 	mqttClient    mqtt.Client
-	config        Config
-	logger        *Logger
+	config        common.Config
+	logger        common.Logger
 	scriptDir     string
 	router        *mux.Router
 	db            *shared.DB
