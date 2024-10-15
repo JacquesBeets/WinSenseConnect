@@ -1,8 +1,26 @@
-package main
+package common
 
-import (
-	"time"
-)
+import "time"
+
+type Logger interface {
+	Debug(message string)
+	Error(message string)
+	Close()
+}
+
+type Config struct {
+	ID                  int64                   `json:"id"`
+	BrokerAddress       string                  `json:"broker_address"`
+	Username            string                  `json:"username"`
+	Password            string                  `json:"password"`
+	ClientID            string                  `json:"client_id"`
+	Topic               string                  `json:"topic"`
+	LogLevel            string                  `json:"log_level"`
+	ScriptTimeout       int                     `json:"script_timeout"`
+	SensorConfigEnabled bool                    `json:"sensor_config_enabled"`
+	Commands            map[string]ScriptConfig `json:"commands"`
+	Sensors             map[string]SensorConfig `json:"sensors"`
+}
 
 type ConfigModel struct {
 	ID            int64     `db:"id"`
@@ -26,6 +44,7 @@ type ScriptConfig struct {
 	CreatedAt     time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
 }
+
 type ScriptConfigs []ScriptConfig
 
 type SensorConfig struct {
@@ -37,4 +56,15 @@ type SensorConfig struct {
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
+
 type SensorConfigs []SensorConfig
+
+// New structs for systray configuration
+type SystrayConfig struct {
+	HotkeyCommands []HotkeyCommand
+}
+
+type HotkeyCommand struct {
+	Hotkey  string
+	Command string
+}

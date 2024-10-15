@@ -11,97 +11,62 @@ This project is a Windows service that listens for MQTT messages and executes Po
 
 ## Installation
 
-1. Clone this repository or download the source code.
+1. Download the latest release of WinSenseConnect from the GitHub releases page.
 
-2. Install the required Go packages:
+2. Extract the downloaded zip file to a directory of your choice.
 
-   ```go
-   go get github.com/eclipse/paho.mqtt.golang
-   go get github.com/kardianos/service
-   go get golang.org/x/sys/windows/svc/eventlog
-   ```
-
-3. Create a `config.json` file in the same directory as the Go script:
-
-   ```json
-   {
-       "broker_address": "tcp://your_broker_ip:1883",
-       "username": "your_mqtt_username",
-       "password": "your_mqtt_password",
-       "client_id": "windows-automation-service",
-       "topic": "windows/commands",
-       "log_level": "debug",
-       "commands": {
-           "switch_to_macbook": "switch_to_macbook.ps1",
-           "shutdown_windows": "shutdown_windows.ps1",
-           "restart_windows": "restart_windows.ps1",
-           "launch_app": "launch_app.ps1"
-       }
-   }
-   ```
-
-   Replace the broker address, username, and password with your MQTT broker details.
-
-4. The repository includes a `scripts` folder with a `run_ps.bat` file. This is where you'll add your PowerShell scripts. Create the PowerShell scripts referenced in your `config.json` and place them in the `scripts` folder. For example:
-   - `scripts\switch_to_macbook.ps1`
-   - `scripts\shutdown_windows.ps1`
-   - `scripts\restart_windows.ps1`
-   - `scripts\launch_app.ps1`
-
-5. Build the Go program:
-
-   ```go
-   go build -o WinSenseConnect.exe
-   ```
-
-6. Open PowerShell as Administrator and run the following commands to install and start the service:
-   - Replace `C:\your\path\to` with the path to the executable on your computer.
+3. Open PowerShell as Administrator and run the following commands to install and start the service:
+   - Replace `C:\path\to\extracted\folder` with the path where you extracted the files.
   
    ```powershell
-   New-Service -Name "WinSenseConnect" -BinaryPathName "C:\your\path\to\WinSenseConnect.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
+   New-Service -Name "WinSenseConnect" -BinaryPathName "C:\path\to\extracted\folder\WinSenseConnect.exe" -DisplayName "MQTT Powershell Automation Service" -StartupType Automatic -Description "Listens for MQTT messages and runs PowerShell scripts"
    Start-Service -Name "WinSenseConnect"
    ```
 
+4. After installation, open a web browser and navigate to `http://localhost:8080` to access the web dashboard.
+
+5. Use the web dashboard to configure your MQTT settings, manage scripts, and view logs.
+
 ## Usage
 
-Once the service is running, it will listen for messages on the MQTT topic specified in your `config.json`. When a message is received, it will execute the corresponding PowerShell script.
+Once the service is running and configured through the web dashboard, it will listen for messages on the specified MQTT topic. When a message is received, it will execute the corresponding PowerShell script.
 
-To trigger a command, publish a message to your MQTT topic with the command as the payload. For example, to switch to your MacBook, you would publish the message "switch_to_macbook" to the topic "windows/commands" (or whatever topic you specified in your config).
+To trigger a command, publish a message to your MQTT topic with the command as the payload. For example, to switch to your MacBook, you would publish the message "switch_to_macbook" to the topic you configured in the dashboard.
+
+## Web Dashboard
+
+The web dashboard provides an easy-to-use interface for managing your WinSenseConnect service. Here's what you can do:
+
+1. Configure MQTT settings: Set your broker address, credentials, and topics.
+2. Manage scripts: Add, edit, or remove PowerShell scripts that can be triggered via MQTT.
+3. View logs: Check the service logs directly from the dashboard.
+4. Monitor service status: See if the service is running and connected to the MQTT broker.
 
 ## Logging
 
 The service logs its activities to two places:
 
 1. Windows Event Log: You can view these logs in the Event Viewer under Windows Logs > Application.
-2. A log file: Located in the same directory as the executable, named `WinSenseConnect.log`.
+2. Web Dashboard: Logs can be viewed directly in the web interface.
 
 ## Modifying Commands
 
 To add or modify commands:
 
-1. Stop the service:
+1. Open the web dashboard at `http://localhost:8077`.
+2. Navigate to the Scripts section.
+3. Add a new script or edit an existing one.
+4. Save your changes.
 
-   ```powershell
-   Stop-Service -Name "WinSenseConnect"
-   ```
-
-2. Edit the `config.json` file to add or change command entries.
-
-3. Create or modify the corresponding PowerShell scripts in the `scripts` folder.
-
-4. Start the service:
-
-   ```powershell
-   Start-Service -Name "WinSenseConnect"
-   ```
+The service will automatically reload the configuration, so there's no need to restart it.
 
 ## Troubleshooting
 
 If you encounter issues:
 
-1. Check the log file `WinSenseConnect.log` in the same directory as the executable.
+1. Check the logs in the web dashboard.
 2. Ensure your MQTT broker is running and accessible.
-3. Verify that the PowerShell scripts exist in the `scripts` folder.
+3. Verify that the PowerShell scripts exist and are correctly configured in the dashboard.
 4. Check that the service is running:
 
    ```powershell
@@ -125,14 +90,14 @@ To remove the service:
    sc.exe delete "WinSenseConnect"
    ```
 
-2. Delete the executable, configuration files, and the `scripts` folder.
+2. Delete the WinSenseConnect folder and all its contents.
 
 ## Security Considerations
 
-- Storing your MQTT username and password in the config file poses a security risk. Use this service only on a trusted closed network.
+- Access to the web dashboard should be restricted to trusted users only.
 - Be cautious about what commands you allow and what the PowerShell scripts do.
-- Consider network-level security to restrict access to your MQTT broker.
-- The service uses a batch file to bypass PowerShell execution policy for scripts in the `scripts` folder. While this is more secure than changing the system-wide execution policy, it still requires caution.
+- Consider network-level security to restrict access to your MQTT broker and the web dashboard.
+- The service uses a secure method to store sensitive information like MQTT credentials.
 
 ## Contributing
 
