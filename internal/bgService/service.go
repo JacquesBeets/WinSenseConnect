@@ -22,7 +22,7 @@ import (
 type program struct {
 	mqttClient    mqtt.Client
 	config        common.Config
-	logger        common.Logger
+	Logger        common.Logger
 	scriptDir     string
 	router        *mux.Router
 	db            *shared.DB
@@ -55,15 +55,15 @@ func NewProgram() (*program, error) {
 	}
 
 	// Initialize final logger with loaded config
-	p.logger, err = NewLogger("WinSenseConnect.log", &p.config, "WinSenseConnect", p.broadcastEvent)
+	p.Logger, err = NewLogger("WinSenseConnect.log", &p.config, "WinSenseConnect", p.broadcastEvent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %v", err)
 	}
 
 	// Init Schema
-	err = p.db.InitSchema(p.logger)
+	err = p.db.InitSchema(p.Logger)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to initialize database schema: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to initialize database schema: %v", err))
 		return nil, err
 	}
 
@@ -95,14 +95,14 @@ func (p *program) broadcastEvent(event []byte) {
 }
 
 func (p *program) Start(s service.Service) error {
-	p.logger.Debug("Starting service")
-	p.logger.Debug("Config loaded, about to start run function")
+	p.Logger.Debug("Starting service")
+	p.Logger.Debug("Config loaded, about to start run function")
 	go p.startHTTPServer()
 	go p.run()
 
 	// Start systray if it's not running
 	if err := p.startSystrayIfNotRunning(); err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to start systray: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to start systray: %v", err))
 	}
 
 	return nil
@@ -111,43 +111,43 @@ func (p *program) Start(s service.Service) error {
 func (p *program) run() {
 	defer func() {
 		if r := recover(); r != nil {
-			p.logger.Error(fmt.Sprintf("Recovered from panic in run: %v\nStack trace: %s", r, debug.Stack()))
+			p.Logger.Error(fmt.Sprintf("Recovered from panic in run: %v\nStack trace: %s", r, debug.Stack()))
 		}
 	}()
 
-	p.logger.Debug("Run function started")
+	p.Logger.Debug("Run function started")
 
 	p.setupMQTTClient()
 
 	for {
-		p.logger.Debug(fmt.Sprintf("Attempting to connect to MQTT broker at %s...", p.config.BrokerAddress))
+		p.Logger.Debug(fmt.Sprintf("Attempting to connect to MQTT broker at %s...", p.config.BrokerAddress))
 		if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
-			p.logger.Error(fmt.Sprintf("Connection failed: %v", token.Error()))
+			p.Logger.Error(fmt.Sprintf("Connection failed: %v", token.Error()))
 			time.Sleep(time.Second * 10)
 		} else {
-			p.logger.Debug("Connection successful")
+			p.Logger.Debug("Connection successful")
 			break
 		}
 	}
 
 	for {
 		if !p.mqttClient.IsConnected() {
-			p.logger.Debug("Connection lost, attempting to reconnect...")
+			p.Logger.Debug("Connection lost, attempting to reconnect...")
 			if token := p.mqttClient.Connect(); token.Wait() && token.Error() != nil {
-				p.logger.Error(fmt.Sprintf("Reconnection failed: %v", token.Error()))
+				p.Logger.Error(fmt.Sprintf("Reconnection failed: %v", token.Error()))
 			} else {
-				p.logger.Debug("Reconnection successful")
+				p.Logger.Debug("Reconnection successful")
 			}
 		} else {
-			p.logger.Debug("MQTT client is connected")
+			p.Logger.Debug("MQTT client is connected")
 		}
 		time.Sleep(time.Minute)
-		p.logger.Debug("Service is still running...")
+		p.Logger.Debug("Service is still running...")
 	}
 }
 
 func (p *program) Stop(s service.Service) error {
-	p.logger.Debug("Stopping service")
+	p.Logger.Debug("Stopping service")
 	if p.mqttClient != nil && p.mqttClient.IsConnected() {
 		p.mqttClient.Disconnect(250)
 	}
@@ -157,14 +157,14 @@ func (p *program) Stop(s service.Service) error {
 func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 	sessionID, err := getActiveSessionID()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to get active session ID: %v", err))
+		p.Logger.Error(fmt.Sprintf("failed to get active session ID: %v", err))
 		return "", fmt.Errorf("failed to get active session ID: %v", err)
 	}
 
 	var userToken windows.Token
 	err = wtsQueryUserToken(sessionID, &userToken)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to get user token: %v", err))
+		p.Logger.Error(fmt.Sprintf("failed to get user token: %v", err))
 		return "", fmt.Errorf("failed to get user token: %v", err)
 	}
 	defer userToken.Close()
@@ -178,7 +178,7 @@ func (p *program) runAsLoggedInUser(scriptPath string) (string, error) {
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
+		p.Logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
 	}
 
@@ -192,7 +192,7 @@ func (p *program) runAsLocalSystem(scriptPath string) (string, error) {
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
+		p.Logger.Error(fmt.Sprintf("command failed: %v\nOutput: %s", err, output))
 		return "", fmt.Errorf("command failed: %v\nOutput: %s", err, output)
 	}
 
@@ -208,19 +208,19 @@ func (p *program) executeScript(scriptPath string, runAsUser bool) (string, erro
 }
 
 func (p *program) restartService() error {
-	p.logger.Debug("Restarting service")
+	p.Logger.Debug("Restarting service")
 	err := p.Stop(nil)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
+		p.Logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to stop service: %v", err)
 	}
 	// clear mqtt client
 	p.mqttClient = nil
 	time.Sleep(time.Second * 5)
-	p.logger.Debug("Service stopped, restarting...")
+	p.Logger.Debug("Service stopped, restarting...")
 	err = p.Start(nil)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to stop service: %v", err))
+		p.Logger.Error(fmt.Sprintf("failed to stop service: %v", err))
 		return fmt.Errorf("failed to start service: %v", err)
 	}
 	return nil
@@ -230,7 +230,7 @@ func (p *program) isSystrayRunning() bool {
 	cmd := exec.Command("tasklist", "/FI", "IMAGENAME eq WinSenseConnectSystray.exe", "/FO", "CSV", "/NH")
 	output, err := cmd.Output()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to check if systray is running: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to check if systray is running: %v", err))
 		return false
 	}
 	return len(output) > 0
@@ -238,7 +238,7 @@ func (p *program) isSystrayRunning() bool {
 
 func (p *program) startSystrayIfNotRunning() error {
 	if !p.isSystrayRunning() {
-		p.logger.Debug("Systray is not running. Starting it now.")
+		p.Logger.Debug("Systray is not running. Starting it now.")
 		exePath, err := os.Executable()
 		if err != nil {
 			return fmt.Errorf("failed to get executable path: %v", err)
@@ -252,9 +252,9 @@ func (p *program) startSystrayIfNotRunning() error {
 		if err != nil {
 			return fmt.Errorf("failed to start systray: %v", err)
 		}
-		p.logger.Debug("Systray started successfully.")
+		p.Logger.Debug("Systray started successfully.")
 	} else {
-		p.logger.Debug("Systray is already running.")
+		p.Logger.Debug("Systray is already running.")
 	}
 	return nil
 }

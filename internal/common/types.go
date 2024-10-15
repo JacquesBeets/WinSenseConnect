@@ -5,6 +5,7 @@ import "time"
 type Logger interface {
 	Debug(message string)
 	Error(message string)
+	Close()
 }
 
 type Config struct {

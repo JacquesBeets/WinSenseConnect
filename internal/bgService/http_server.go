@@ -13,12 +13,12 @@ import (
 )
 
 func (p *program) startHTTPServer() {
-	p.logger.Debug("Starting HTTP server")
+	p.Logger.Debug("Starting HTTP server")
 	r := p.router
 
 	exePath, err := os.Executable()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to get executable path: %v", err))
 	}
 	staticPath := filepath.Join(filepath.Dir(exePath), "frontend/.output/public")
 
@@ -44,33 +44,33 @@ func (p *program) startHTTPServer() {
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	}).Handler(r)
 
-	p.logger.Debug("Listening on port 8077")
+	p.Logger.Debug("Listening on port 8077")
 	http.ListenAndServe("0.0.0.0:8077", corsHandler)
 }
 
 func (p *program) handleGetConfig(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/config GET request")
+	p.Logger.Debug("Handling /api/config GET request")
 	err := json.NewEncoder(w).Encode(p.config)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to encode config: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to encode config: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 }
 
 func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/config POST request")
+	p.Logger.Debug("Handling /api/config POST request")
 	var newConfig Config
 	err := json.NewDecoder(r.Body).Decode(&newConfig)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to decode config: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to decode config: %v", err))
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 	p.config = newConfig
 	err = p.db.UpdateConfig(&p.config)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to save config: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to save config: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -78,11 +78,11 @@ func (p *program) handleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/scripts GET request")
+	p.Logger.Debug("Handling /api/scripts GET request")
 
 	scritpConfig, err := p.db.GetScriptConfigs()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to get script configs: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to get script configs: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -90,18 +90,18 @@ func (p *program) handleListScripts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *program) handleGetScript(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/scripts/:id GET request")
+	p.Logger.Debug("Handling /api/scripts/:id GET request")
 	vars := mux.Vars(r)
 	id, err := strconv.ParseInt(vars["id"], 10, 64)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to parse id: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to parse id: %v", err))
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	scriptConfig, err := p.db.GetScriptConfig(id)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to get script config: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to get script config: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -109,15 +109,15 @@ func (p *program) handleGetScript(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *program) handleAddScript(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/scripts POST request")
+	p.Logger.Debug("Handling /api/scripts POST request")
 	// Logic to add new powershell scripts
 }
 
 func (p *program) handleRestartService(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/restart POST request")
+	p.Logger.Debug("Handling /api/restart POST request")
 	err := p.restartService()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to restart service: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to restart service: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -125,7 +125,7 @@ func (p *program) handleRestartService(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *program) eventHandler(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/events SSE Events")
+	p.Logger.Debug("Handling /api/events SSE Events")
 	// Set CORS headers to allow all origins. You may want to restrict this to specific origins in a production environment.
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Expose-Headers", "Content-Type")
@@ -167,10 +167,10 @@ func (p *program) eventHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *program) handleGetLogs(w http.ResponseWriter, r *http.Request) {
-	p.logger.Debug("Handling /api/logs GET request")
+	p.Logger.Debug("Handling /api/logs GET request")
 	exePath, err := os.Executable()
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("failed to get executable path: %v", err))
+		p.Logger.Error(fmt.Sprintf("failed to get executable path: %v", err))
 	}
 	dir := filepath.Join(filepath.Dir(exePath), "WinSenseConnect.log")
 	// Read the log file
@@ -178,11 +178,11 @@ func (p *program) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			// If the file doesn't exist, return an empty log array
-			p.logger.Debug("Log file not found. Returning empty log array.")
+			p.Logger.Debug("Log file not found. Returning empty log array.")
 			json.NewEncoder(w).Encode(map[string]string{"logs": ""})
 			return
 		}
-		p.logger.Error(fmt.Sprintf("Failed to read log file: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to read log file: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -200,7 +200,7 @@ func (p *program) handleGetLogs(w http.ResponseWriter, r *http.Request) {
 	// Encode and send the response
 	err = json.NewEncoder(w).Encode(response)
 	if err != nil {
-		p.logger.Error(fmt.Sprintf("Failed to encode log response: %v", err))
+		p.Logger.Error(fmt.Sprintf("Failed to encode log response: %v", err))
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
