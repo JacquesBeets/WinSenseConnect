@@ -24,11 +24,15 @@ jobs:
         choco install mingw -y
         echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
   
-    - name: Build Go binary
+    - name: Build Go service binary
       run: |
-        cd backend
         $env:CGO_ENABLED=1
-        go build -o ../WinSenseConnect.exe
+        go build -o WinSenseConnect.exe ./cmd/service
+
+    - name: Build Go systray binary
+      run: |
+        $env:CGO_ENABLED=1
+        go build -o WinSenseConnectSystray.exe ./cmd/systray -ldflags "-H=windowsgui"
 
     - name: Set up Node.js
       uses: actions/setup-node@v2
@@ -46,7 +50,7 @@ jobs:
         mkdir -p release/frontend/.output
         mkdir release\scripts
         copy WinSenseConnect.exe release\
-        copy config.template.json release\config.json
+        copy WinSenseConnectSystray.exe release\
         xcopy /E /I frontend\.output\public release\frontend\.output\public
         copy scripts\test_notification.ps1 release\scripts\
 
@@ -64,7 +68,6 @@ jobs:
         draft: false
         prerelease: false
     
-
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
       env:
