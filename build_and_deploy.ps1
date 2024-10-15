@@ -1,4 +1,3 @@
-# build_and_deploy.ps1
 
 # Self-elevate the script if required
 if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
@@ -9,7 +8,6 @@ if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     }
 }
 
-# Rest of the script starts here
 Write-Host "Running with administrator privileges"
 
 # Get the script's directory
@@ -55,26 +53,27 @@ Start-Sleep -Seconds 5
 
 # Remove the log file and delete the executables
 $mqttLogPath = Join-Path $scriptDir "WinSenseConnect.log"
-$mqttLogPath = Join-Path $scriptDir "WinSenseConnectSystray.log"
+$systrayLogPath = Join-Path $scriptDir "WinSenseConnectSystray.log"
 $winsenseConnectPath = Join-Path $scriptDir "WinSenseConnect.exe"
 $winsenseConnectSystrayPath = Join-Path $scriptDir "WinSenseConnectSystray.exe"
 
 Write-Host "Attempting to delete files:"
-Write-Host "Log file: $mqttLogPath"
+Write-Host "Log files: $mqttLogPath, $systrayLogPath"
 Write-Host "WinSenseConnect: $winsenseConnectPath"
 Write-Host "WinSenseConnectSystray: $winsenseConnectSystrayPath"
 
 Force-Delete $mqttLogPath
+Force-Delete $systrayLogPath
 Force-Delete $winsenseConnectPath
 Force-Delete $winsenseConnectSystrayPath
 
 # Additional wait to ensure files are released
 Start-Sleep -Seconds 2
 
-# Build the main Go program
-Write-Host "Building the main Go program..."
-$backendDir = Join-Path $scriptDir "backend"
-Set-Location $backendDir
+# Build the main service
+Write-Host "Building the main service..."
+$serviceDir = Join-Path $scriptDir "cmd\service"
+Set-Location $serviceDir
 $env:CGO_ENABLED=1; go build -o (Join-Path $scriptDir "WinSenseConnect.exe")
 
 if ($LASTEXITCODE -ne 0) {
@@ -86,9 +85,9 @@ Start-Sleep -Seconds 2
 
 # Build the systray application
 Write-Host "Building the systray application..."
-$systrayDir = Join-Path $scriptDir "systray"
+$systrayDir = Join-Path $scriptDir "cmd\systray"
 Set-Location $systrayDir
-$env:CGO_ENABLED=1;
+$env:CGO_ENABLED=1
 go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") -ldflags "-H=windowsgui"
 # go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") // Development
 
