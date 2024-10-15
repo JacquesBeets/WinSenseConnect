@@ -8,7 +8,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"systray/icon"
+	"win-sense-connect/internal/appSystray"
+	"win-sense-connect/internal/appSystray/icon"
 
 	"github.com/getlantern/systray"
 	hook "github.com/robotn/gohook"
@@ -86,7 +87,7 @@ func onReady() {
 		for {
 			select {
 			case <-mShowQuickShortcuts.ClickedCh:
-				err := OpenURLInBrowser("http://localhost:8077")
+				err := appSystray.OpenURLInBrowser("http://localhost:8077")
 				if err != nil {
 					log.Printf("Error opening shortcuts view: %v", err)
 				}

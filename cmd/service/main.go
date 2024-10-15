@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"win-sense-connect/internal/bgService"
 
 	"github.com/kardianos/service"
 )
@@ -13,12 +14,12 @@ func main() {
 		Description: "Listens for MQTT messages and runs PowerShell scripts",
 	}
 
-	prg, err := newProgram()
+	prg, err := bgService.NewProgram()
 	if err != nil {
 		fmt.Printf("Failed to create program: %v\n", err)
 		return
 	}
-	defer prg.logger.Close()
+	defer prg.logger.Close() // Close the logger when the service is stopped
 
 	s, err := service.New(prg, svcConfig)
 	if err != nil {

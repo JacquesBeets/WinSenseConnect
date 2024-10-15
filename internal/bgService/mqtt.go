@@ -1,4 +1,4 @@
-package main
+package bgService
 
 import (
 	"fmt"

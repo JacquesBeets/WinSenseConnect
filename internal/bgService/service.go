@@ -1,4 +1,4 @@
-package main
+package bgService
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"win-sense-connect/internal/shared"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gorilla/mux"
@@ -22,12 +24,12 @@ type program struct {
 	logger        *Logger
 	scriptDir     string
 	router        *mux.Router
-	db            *DB
+	db            *shared.DB
 	eventChannels []chan []byte
 	eventMutex    sync.Mutex
 }
 
-func newProgram() (*program, error) {
+func NewProgram() (*program, error) {
 	p := &program{
 		eventChannels: make([]chan []byte, 0),
 	}
@@ -40,7 +42,7 @@ func newProgram() (*program, error) {
 	}
 
 	// Init DB
-	p.db, err = NewDB()
+	p.db, err = shared.NewDB()
 	if err != nil {
 		tempLogger.Error(fmt.Sprintf("Failed to create database: %v", err))
 		return nil, err

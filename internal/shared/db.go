@@ -1,4 +1,4 @@
-package main
+package shared
 
 import (
 	"database/sql"
@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"win-sense-connect/internal/bgService"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -41,7 +42,7 @@ func NewDB() (*DB, error) {
 	return &DB{db}, nil
 }
 
-func (db *DB) InitSchema(logger *Logger) error {
+func (db *DB) InitSchema(logger *bgService.Logger) error {
 	// Drop tables if they exist
 	// logger.Debug("Dropping tables if they exist...")
 	// _, dropErr := db.Exec(`DROP TABLE IF EXISTS configs`)
@@ -88,6 +89,14 @@ func (db *DB) InitSchema(logger *Logger) error {
 			enabled BOOLEAN,
 			interval INTEGER,
 			sensor_topic TEXT,
+			created_at DATETIME,
+			updated_at DATETIME
+		);
+
+		CREATE TABLE IF NOT EXISTS hotkey_commands (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			hotkey TEXT,
+			command TEXT,
 			created_at DATETIME,
 			updated_at DATETIME
 		);
@@ -139,14 +148,14 @@ func (db *DB) AddScriptsFromDir() error {
 		}
 
 		// Check if db has script with same script path
-		var script ScriptConfig
+		var script bgService.ScriptConfig
 		err := db.QueryRow("SELECT id, name, script_path, run_as_user, script_timeout, created_at, updated_at FROM script_configs WHERE script_path = ?", file.Name()).Scan(&script)
 		// split file name into name and extension
 		filename := strings.Split(file.Name(), ".")[0]
 
 		if err == sql.ErrNoRows {
 			// If not, add it
-			script := ScriptConfig{
+			script := bgService.ScriptConfig{
 				Name:          filename,
 				ScriptPath:    file.Name(),
 				RunAsUser:     true,
@@ -161,8 +170,8 @@ func (db *DB) AddScriptsFromDir() error {
 	return nil
 }
 
-func (db *DB) GetConfig() (*Config, error) {
-	var configModel ConfigModel
+func (db *DB) GetConfig() (*bgService.Config, error) {
+	var configModel bgService.ConfigModel
 
 	err := db.QueryRow("SELECT id, broker_address, username, password, client_id, topic, log_level, script_timeout, created_at, updated_at FROM configs ORDER BY id DESC LIMIT 1").Scan(
 		&configModel.ID,
@@ -184,7 +193,7 @@ func (db *DB) GetConfig() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get script configs: %v", err)
 	}
-	configsScriptArray := make(map[string]ScriptConfig)
+	configsScriptArray := make(map[string]bgService.ScriptConfig)
 	for _, config := range *configsScript {
 		configsScriptArray[config.Name] = config
 	}
@@ -193,12 +202,12 @@ func (db *DB) GetConfig() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get sensor configs: %v", err)
 	}
-	configsSensorArray := make(map[string]SensorConfig)
+	configsSensorArray := make(map[string]bgService.SensorConfig)
 	for _, config := range *configsSensor {
 		configsSensorArray[config.SensorTopic] = config
 	}
 
-	config := Config{
+	config := bgService.Config{
 		ID:                  configModel.ID,
 		BrokerAddress:       configModel.BrokerAddress,
 		Username:            configModel.Username,
@@ -215,16 +224,16 @@ func (db *DB) GetConfig() (*Config, error) {
 	return &config, nil
 }
 
-func (db *DB) GetScriptConfigs() (*ScriptConfigs, error) {
+func (db *DB) GetScriptConfigs() (*bgService.ScriptConfigs, error) {
 	rows, err := db.Query("SELECT id, name, script_path, run_as_user, script_timeout, created_at, updated_at FROM script_configs ORDER BY id DESC")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query script configs: %v", err)
 	}
 	defer rows.Close()
 
-	var scriptConfigs ScriptConfigs
+	var scriptConfigs bgService.ScriptConfigs
 	for rows.Next() {
-		var sc ScriptConfig
+		var sc bgService.ScriptConfig
 		err := rows.Scan(&sc.ID, &sc.Name, &sc.ScriptPath, &sc.RunAsUser, &sc.ScriptTimeout, &sc.CreatedAt, &sc.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan script config: %v", err)
@@ -234,8 +243,8 @@ func (db *DB) GetScriptConfigs() (*ScriptConfigs, error) {
 	return &scriptConfigs, nil
 }
 
-func (db *DB) GetScriptConfig(id int64) (*ScriptConfig, error) {
-	var scriptConfig ScriptConfig
+func (db *DB) GetScriptConfig(id int64) (*bgService.ScriptConfig, error) {
+	var scriptConfig bgService.ScriptConfig
 	err := db.QueryRow("SELECT id, name, script_path, run_as_user, script_timeout, created_at, updated_at FROM script_configs WHERE id = ? ORDER BY id DESC LIMIT 1", id).Scan(
 		&scriptConfig.ID,
 		&scriptConfig.Name,
@@ -251,16 +260,16 @@ func (db *DB) GetScriptConfig(id int64) (*ScriptConfig, error) {
 	return &scriptConfig, nil
 }
 
-func (db *DB) GetSensorConfigs() (*SensorConfigs, error) {
+func (db *DB) GetSensorConfigs() (*bgService.SensorConfigs, error) {
 	rows, err := db.Query("SELECT id, name, enabled, interval, sensor_topic, created_at, updated_at FROM sensor_configs ORDER BY id DESC")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sensor configs: %v", err)
 	}
 	defer rows.Close()
 
-	var sensorConfigs SensorConfigs
+	var sensorConfigs bgService.SensorConfigs
 	for rows.Next() {
-		var sc SensorConfig
+		var sc bgService.SensorConfig
 		err := rows.Scan(&sc.ID, &sc.Name, &sc.Enabled, &sc.Interval, &sc.SensorTopic, &sc.CreatedAt, &sc.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan sensor config: %v", err)
@@ -270,7 +279,7 @@ func (db *DB) GetSensorConfigs() (*SensorConfigs, error) {
 	return &sensorConfigs, nil
 }
 
-func (db *DB) SaveConfig(config *Config) error {
+func (db *DB) SaveConfig(config *bgService.Config) error {
 	now := time.Now()
 	_, err := db.Exec(`
 		INSERT INTO configs (
@@ -284,7 +293,7 @@ func (db *DB) SaveConfig(config *Config) error {
 	return err
 }
 
-func (db *DB) UpdateConfig(config *Config) error {
+func (db *DB) UpdateConfig(config *bgService.Config) error {
 	now := time.Now()
 	_, err := db.Exec(`
 		UPDATE configs SET
@@ -299,8 +308,8 @@ func (db *DB) UpdateConfig(config *Config) error {
 	return err
 }
 
-func (db *DB) GetSensorConfig(id int64) (*SensorConfig, error) {
-	var sensorConfig SensorConfig
+func (db *DB) GetSensorConfig(id int64) (*bgService.SensorConfig, error) {
+	var sensorConfig bgService.SensorConfig
 	err := db.QueryRow("SELECT id, name, enabled, interval, sensor_topic, created_at, updated_at FROM sensor_configs WHERE id = ? ORDER BY id DESC LIMIT 1", id).Scan(
 		&sensorConfig.ID,
 		&sensorConfig.Name,
@@ -316,7 +325,7 @@ func (db *DB) GetSensorConfig(id int64) (*SensorConfig, error) {
 	return &sensorConfig, nil
 }
 
-func (db *DB) UpdateSensorConfig(sensorConfig *SensorConfig) error {
+func (db *DB) UpdateSensorConfig(sensorConfig *bgService.SensorConfig) error {
 	_, err := db.Exec(`
 		UPDATE sensor_configs SET
 			name = ?, enabled = ?, interval = ?, sensor_topic = ?, updated_at = ?
@@ -331,7 +340,7 @@ func (db *DB) UpdateSensorConfig(sensorConfig *SensorConfig) error {
 	return err
 }
 
-func (db *DB) CreateSensorConfig(sensorConfig *SensorConfig) error {
+func (db *DB) CreateSensorConfig(sensorConfig *bgService.SensorConfig) error {
 	now := time.Now()
 	_, err := db.Exec(`
 		INSERT INTO sensor_configs (
@@ -347,7 +356,7 @@ func (db *DB) CreateSensorConfig(sensorConfig *SensorConfig) error {
 	return err
 }
 
-func (db *DB) CreateScriptConfig(scriptConf *ScriptConfig) error {
+func (db *DB) CreateScriptConfig(scriptConf *bgService.ScriptConfig) error {
 	now := time.Now()
 	_, err := db.Exec(`
 		INSERT INTO script_configs (
