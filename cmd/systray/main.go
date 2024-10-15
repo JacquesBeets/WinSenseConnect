@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,21 +9,15 @@ import (
 
 	"win-sense-connect/internal/appSystray"
 	"win-sense-connect/internal/appSystray/icon"
+	"win-sense-connect/internal/common"
+	"win-sense-connect/internal/shared"
 
 	"github.com/getlantern/systray"
 	hook "github.com/robotn/gohook"
 )
 
-type HotkeyCommand struct {
-	Hotkey  string `json:"hotkey"`
-	Command string `json:"command"`
-}
-
-type SystrayConfig struct {
-	HotkeyCommands []HotkeyCommand `json:"hotkeyCommands"`
-}
-
-var config SystrayConfig
+var config common.SystrayConfig
+var db *shared.DB
 
 func main() {
 	// Set up logging to a file
@@ -43,9 +36,20 @@ func main() {
 		}
 	}()
 
-	log.Println("Loading configuration")
-	err = loadConfig()
+	log.Println("Initializing database connection")
+	db, err = shared.NewDB()
 	if err != nil {
+		log.Printf("Error initializing database: %v\n", err)
+		return
+	}
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Error closing database connection: %v\n", err)
+		}
+	}()
+
+	log.Println("Loading configuration")
+	if err := loadConfig(); err != nil {
 		log.Printf("Error loading configuration: %v\n", err)
 		return
 	}
@@ -58,16 +62,20 @@ func main() {
 }
 
 func loadConfig() error {
-	file, err := os.ReadFile("systray_config.json")
+	hotkeyCommands, err := db.GetHotkeyCommands()
 	if err != nil {
-		return fmt.Errorf("error reading systray config file: %v", err)
+		return fmt.Errorf("error getting hotkey commands from database: %v", err)
 	}
 
-	err = json.Unmarshal(file, &config)
-	if err != nil {
-		return fmt.Errorf("error parsing systray config file: %v", err)
+	if len(hotkeyCommands) == 0 {
+		log.Println("Warning: No hotkey commands found in the database")
 	}
-	log.Printf("Loaded configuration: %+v\n", config)
+
+	config = common.SystrayConfig{
+		HotkeyCommands: hotkeyCommands,
+	}
+
+	log.Printf("Loaded configuration with %d hotkey commands\n", len(config.HotkeyCommands))
 	return nil
 }
 
@@ -87,8 +95,7 @@ func onReady() {
 		for {
 			select {
 			case <-mShowQuickShortcuts.ClickedCh:
-				err := appSystray.OpenURLInBrowser("http://localhost:8077")
-				if err != nil {
+				if err := appSystray.OpenURLInBrowser("http://localhost:8077"); err != nil {
 					log.Printf("Error opening shortcuts view: %v", err)
 				}
 			case <-mQuit.ClickedCh:
@@ -144,8 +151,7 @@ func parseHotkey(hotkey string) []string {
 func executeCommand(command string) {
 	log.Printf("Executing command: %s\n", command)
 	cmd := exec.Command("cmd", "/C", command)
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Printf("Error executing command: %v\n", err)
 	}
 }

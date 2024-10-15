@@ -356,3 +356,22 @@ func (db *DB) CreateScriptConfig(scriptConf *common.ScriptConfig) error {
 	)
 	return err
 }
+
+func (db *DB) GetHotkeyCommands() ([]common.HotkeyCommand, error) {
+	rows, err := db.Query("SELECT hotkey, command FROM hotkey_commands")
+	if err != nil {
+		return nil, fmt.Errorf("failed to query hotkey commands: %v", err)
+	}
+	defer rows.Close()
+
+	var hotkeyCommands []common.HotkeyCommand
+	for rows.Next() {
+		var hc common.HotkeyCommand
+		err := rows.Scan(&hc.Hotkey, &hc.Command)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan hotkey command: %v", err)
+		}
+		hotkeyCommands = append(hotkeyCommands, hc)
+	}
+	return hotkeyCommands, nil
+}

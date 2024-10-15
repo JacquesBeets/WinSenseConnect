@@ -58,3 +58,13 @@ type SensorConfig struct {
 }
 
 type SensorConfigs []SensorConfig
+
+// New structs for systray configuration
+type SystrayConfig struct {
+	HotkeyCommands []HotkeyCommand
+}
+
+type HotkeyCommand struct {
+	Hotkey  string
+	Command string
+}
