@@ -73,8 +73,7 @@ Start-Sleep -Seconds 2
 # Build the main service
 Write-Host "Building the main service..."
 $serviceDir = Join-Path $scriptDir "cmd\service"
-Set-Location $serviceDir
-$env:CGO_ENABLED=1; go build -o (Join-Path $scriptDir "WinSenseConnect.exe")
+$env:CGO_ENABLED=1; go build -o (Join-Path $scriptDir "WinSenseConnect.exe") $serviceDir
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Main program build failed. Exiting."
@@ -85,11 +84,9 @@ Start-Sleep -Seconds 2
 
 # Build the systray application
 Write-Host "Building the systray application..."
-$systrayDir = Join-Path $scriptDir "cmd\systray"
-Set-Location $systrayDir
-$env:CGO_ENABLED=1
-go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") -ldflags "-H=windowsgui"
-# go build -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") // Development
+$systrayDir = Join-Path $scriptDir ".\cmd\systray\main.go"
+$env:CGO_ENABLED=1;
+go build -ldflags "-H=windowsgui -s" -o (Join-Path $scriptDir "WinSenseConnectSystray.exe") $systrayDir  
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Systray build failed. Exiting."
