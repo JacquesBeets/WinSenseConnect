@@ -27,12 +27,12 @@ jobs:
     - name: Build Go service binary
       run: |
         $env:CGO_ENABLED=1
-        go build -o ../../WinSenseConnect.exe ./cmd/service
+        go build -o WinSenseConnect.exe ./cmd/service
 
     - name: Build Go systray binary
       run: |
         $env:CGO_ENABLED=1
-        go build -ldflags "-H=windowsgui" -o ../../WinSenseConnectSystray.exe ./cmd/systray
+        go build -ldflags "-H=windowsgui" -o WinSenseConnectSystray.exe ./cmd/systray
 
     - name: Set up Node.js
       uses: actions/setup-node@v2
